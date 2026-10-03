@@ -1,126 +1,368 @@
+// ============================================================
+// FATAL QA DASHBOARD 2026
+// Complete Dashboard JavaScript
+// ============================================================
+
+
+// ============================================================
+// GLOBAL VARIABLES
+// ============================================================
+
 let rawData = [];
 let filteredData = [];
 
-let charts = {};
+const charts = {};
 
 
-// ==========================================
-// LOAD CSV
-// ==========================================
+// ============================================================
+// CSV FILE LOCATION
+// ============================================================
 
-Papa.parse(
-    "data/Fatal Dashboard 2026 - Fatal.csv",
-    {
+const CSV_FILE =
+    "./data/Fatal Dashboard 2026 - Fatal.csv";
 
-        download: true,
 
-        header: true,
+// ============================================================
+// START APPLICATION
+// ============================================================
 
-        skipEmptyLines: true,
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
 
-        complete: function(results) {
+        loadData();
 
-            rawData = results.data;
-
-            normalizeData();
-
-            populateFilters();
-
-            updateDashboard();
-
-        },
-
-        error: function(error) {
-
-            console.error("CSV loading error:", error);
-
-            alert(
-                "Unable to load the Fatal CSV file."
-            );
-
-        }
+        setupFilterEvents();
 
     }
 );
 
 
-// ==========================================
-// NORMALIZE DATA
-// ==========================================
+// ============================================================
+// LOAD CSV
+// ============================================================
 
-function normalizeData() {
+async function loadData() {
 
-    rawData = rawData.map(row => {
+    try {
 
-        return {
+        console.log(
+            "Loading CSV:",
+            CSV_FILE
+        );
 
-            ...row,
 
-            status:
-                cleanStatus(
-                    row["Fatal or Warning"]
-                ),
+        const response =
+            await fetch(CSV_FILE);
 
-            reason:
-                normalizeReason(
-                    row["Fatal reason"]
-                ),
 
-            month:
-                cleanValue(row["Month"]),
+        if (!response.ok) {
 
-            team:
-                cleanValue(row["Team Type"]),
+            throw new Error(
+                "CSV could not be loaded. HTTP Status: " +
+                response.status
+            );
 
-            auditor:
-                cleanValue(
-                    row["Auditors Email Address"]
-                ),
+        }
 
-            counselor:
-                cleanValue(
-                    row["Counselor Email Id"]
-                ),
 
-            tl:
-                cleanValue(
-                    row["TL E-mail Id"]
-                )
+        const csvText =
+            await response.text();
 
-        };
 
-    });
+        console.log(
+            "CSV downloaded successfully."
+        );
+
+
+        Papa.parse(
+            csvText,
+            {
+
+                header: true,
+
+                skipEmptyLines: true,
+
+
+                complete:
+                    function (results) {
+
+                        console.log(
+                            "CSV rows:",
+                            results.data.length
+                        );
+
+
+                        console.log(
+                            "CSV headers:",
+                            results.meta.fields
+                        );
+
+
+                        if (
+                            !results.data ||
+                            results.data.length === 0
+                        ) {
+
+                            showError(
+                                "CSV file was loaded but contains no data."
+                            );
+
+                            return;
+
+                        }
+
+
+                        rawData =
+                            results.data;
+
+
+                        normalizeData();
+
+
+                        filteredData =
+                            [...rawData];
+
+
+                        populateFilters();
+
+
+                        updateDashboard();
+
+
+                        hideLoadingMessage();
+
+                    },
+
+
+                error:
+                    function (error) {
+
+                        console.error(
+                            "PapaParse error:",
+                            error
+                        );
+
+
+                        showError(
+                            "Unable to read the CSV file."
+                        );
+
+                    }
+
+            }
+        );
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "DATA LOAD ERROR:",
+            error
+        );
+
+
+        showError(
+
+            "Unable to load the CSV file.<br><br>" +
+
+            "<b>Check that your repository has:</b><br>" +
+
+            "<code>data/Fatal Dashboard 2026 - Fatal.csv</code><br><br>" +
+
+            "Error: " +
+            error.message
+
+        );
+
+    }
 
 }
 
 
-// ==========================================
+// ============================================================
+// ERROR MESSAGE
+// ============================================================
+
+function showError(message) {
+
+    const errorBox =
+        document.getElementById(
+            "dataError"
+        );
+
+
+    if (!errorBox) {
+
+        return;
+
+    }
+
+
+    errorBox.innerHTML =
+
+        "<strong>⚠️ Data Loading Error</strong>" +
+
+        "<br><br>" +
+
+        message;
+
+
+    errorBox.style.display =
+        "block";
+
+}
+
+
+// ============================================================
+// HIDE ERROR
+// ============================================================
+
+function hideLoadingMessage() {
+
+    const errorBox =
+        document.getElementById(
+            "dataError"
+        );
+
+
+    if (errorBox) {
+
+        errorBox.style.display =
+            "none";
+
+    }
+
+}
+
+
+// ============================================================
+// NORMALIZE DATA
+// ============================================================
+
+function normalizeData() {
+
+    rawData =
+        rawData.map(
+
+            function (row) {
+
+                return {
+
+                    ...row,
+
+                    status:
+                        cleanStatus(
+                            row[
+                                "Fatal or Warning"
+                            ]
+                        ),
+
+
+                    month:
+                        cleanMonth(
+                            row["Month"]
+                        ),
+
+
+                    team:
+                        cleanValue(
+                            row["Team Type"]
+                        ),
+
+
+                    auditor:
+                        cleanValue(
+                            row[
+                                "Auditors Email Address"
+                            ]
+                        ),
+
+
+                    counselor:
+                        cleanValue(
+                            row[
+                                "Counselor Email Id"
+                            ]
+                        ),
+
+
+                    tl:
+                        cleanValue(
+                            row[
+                                "TL E-mail Id"
+                            ]
+                        ),
+
+
+                    reason:
+                        normalizeReason(
+                            row[
+                                "Fatal reason"
+                            ]
+                        )
+
+                };
+
+            }
+
+        );
+
+}
+
+
+// ============================================================
 // CLEAN STATUS
-// ==========================================
+// ============================================================
 
 function cleanStatus(value) {
 
-    if (!value) return "";
+    if (
+        value === undefined ||
+        value === null
+    ) {
 
-    value =
+        return "Unknown";
+
+    }
+
+
+    const text =
         String(value)
         .trim()
         .toLowerCase();
 
-    if (value.includes("fatal"))
+
+    if (
+        text === "fatal" ||
+        text.includes("fatal")
+    ) {
+
         return "Fatal";
 
-    if (value.includes("warning"))
+    }
+
+
+    if (
+        text === "warning" ||
+        text.includes("warning")
+    ) {
+
         return "Warning";
 
-    return value;
+    }
+
+
+    return "Unknown";
 
 }
 
 
-// ==========================================
+// ============================================================
 // CLEAN VALUE
-// ==========================================
+// ============================================================
 
 function cleanValue(value) {
 
@@ -134,21 +376,58 @@ function cleanValue(value) {
 
     }
 
+
     return String(value).trim();
 
 }
 
 
-// ==========================================
-// NORMALIZE FATAL REASONS
-// ==========================================
+// ============================================================
+// CLEAN MONTH
+// ============================================================
+
+function cleanMonth(value) {
+
+    if (
+        value === undefined ||
+        value === null ||
+        String(value).trim() === ""
+    ) {
+
+        return "Unknown";
+
+    }
+
+
+    const text =
+        String(value)
+        .trim();
+
+
+    return text.charAt(0).toUpperCase() +
+           text.slice(1).toLowerCase();
+
+}
+
+
+// ============================================================
+// NORMALIZE FATAL REASON
+// ============================================================
 
 function normalizeReason(value) {
 
-    if (!value)
+    if (
+        value === undefined ||
+        value === null ||
+        String(value).trim() === ""
+    ) {
+
         return "Unknown";
 
-    let reason =
+    }
+
+
+    const text =
         String(value)
         .trim()
         .toLowerCase();
@@ -157,8 +436,9 @@ function normalizeReason(value) {
     // BLANK CALL
 
     if (
-        reason.includes("blank call") ||
-        reason.includes("entire call is blank")
+        text.includes("blank call") ||
+        text.includes("entire call") ||
+        text.includes("call is blank")
     ) {
 
         return "Blank Call";
@@ -169,9 +449,10 @@ function normalizeReason(value) {
     // WRONG FEE
 
     if (
-        reason.includes("wrong fee") ||
-        reason.includes("wrong fees") ||
-        reason.includes("fee explanation")
+        text.includes("wrong fee") ||
+        text.includes("wrong fees") ||
+        text.includes("fee explanation") ||
+        text.includes("incorrect fee")
     ) {
 
         return "Wrong Fee";
@@ -182,9 +463,9 @@ function normalizeReason(value) {
     // WRONG INFORMATION
 
     if (
-        reason.includes("wrong info") ||
-        reason.includes("wrong information") ||
-        reason.includes("incorrect information")
+        text.includes("wrong info") ||
+        text.includes("wrong information") ||
+        text.includes("incorrect information")
     ) {
 
         return "Wrong Information";
@@ -192,25 +473,43 @@ function normalizeReason(value) {
     }
 
 
-    // CENTER
+    // CENTER RELATED
 
     if (
-        reason.includes("center availability")
+        text.includes("center") &&
+        (
+            text.includes("wrong") ||
+            text.includes("incorrect") ||
+            text.includes("availability")
+        )
     ) {
 
-        return "Center Availability";
+        return "Center Related";
 
     }
 
 
-    // RUDE
+    // RUDE / ABUSIVE
 
     if (
-        reason.includes("rude") ||
-        reason.includes("abusive")
+        text.includes("rude") ||
+        text.includes("abusive") ||
+        text.includes("misbehav")
     ) {
 
         return "Rude / Abusive Behaviour";
+
+    }
+
+
+    // MISLEADING INFORMATION
+
+    if (
+        text.includes("mislead") ||
+        text.includes("misguid")
+    ) {
+
+        return "Misleading Information";
 
     }
 
@@ -220,9 +519,9 @@ function normalizeReason(value) {
 }
 
 
-// ==========================================
+// ============================================================
 // FILTER OPTIONS
-// ==========================================
+// ============================================================
 
 function populateFilters() {
 
@@ -231,25 +530,30 @@ function populateFilters() {
         "month"
     );
 
+
     populateSelect(
         "teamFilter",
         "team"
     );
+
 
     populateSelect(
         "auditorFilter",
         "auditor"
     );
 
+
     populateSelect(
         "tlFilter",
         "tl"
     );
 
+
     populateSelect(
         "counselorFilter",
         "counselor"
     );
+
 
     populateSelect(
         "reasonFilter",
@@ -259,9 +563,9 @@ function populateFilters() {
 }
 
 
-// ==========================================
+// ============================================================
 // POPULATE SELECT
-// ==========================================
+// ============================================================
 
 function populateSelect(
     elementId,
@@ -274,139 +578,272 @@ function populateSelect(
         );
 
 
+    if (!select) {
+
+        return;
+
+    }
+
+
     const values =
-        [
-            ...new Set(
+        Array.from(
+
+            new Set(
+
                 rawData
-                .map(row => row[property])
-                .filter(Boolean)
+                    .map(
+                        function (row) {
+
+                            return row[property];
+
+                        }
+                    )
+                    .filter(
+                        function (value) {
+
+                            return (
+                                value &&
+                                value !== "Unknown"
+                            );
+
+                        }
+                    )
+
             )
-        ]
-        .sort();
+
+        );
 
 
-    values.forEach(value => {
+    values.sort(
+        function (a, b) {
 
-        const option =
-            document.createElement(
-                "option"
+            return String(a)
+                .localeCompare(
+                    String(b)
+                );
+
+        }
+    );
+
+
+    values.forEach(
+
+        function (value) {
+
+            const option =
+                document.createElement(
+                    "option"
+                );
+
+
+            option.value =
+                value;
+
+
+            option.textContent =
+                value;
+
+
+            select.appendChild(
+                option
             );
 
-        option.value = value;
+        }
 
-        option.textContent = value;
-
-        select.appendChild(option);
-
-    });
+    );
 
 }
 
 
-// ==========================================
+// ============================================================
+// FILTER EVENTS
+// ============================================================
+
+function setupFilterEvents() {
+
+    const filters = [
+
+        "monthFilter",
+        "statusFilter",
+        "teamFilter",
+        "auditorFilter",
+        "tlFilter",
+        "counselorFilter",
+        "reasonFilter"
+
+    ];
+
+
+    filters.forEach(
+
+        function (id) {
+
+            const element =
+                document.getElementById(
+                    id
+                );
+
+
+            if (element) {
+
+                element.addEventListener(
+                    "change",
+                    applyFilters
+                );
+
+            }
+
+        }
+
+    );
+
+
+    const resetButton =
+        document.getElementById(
+            "resetFilters"
+        );
+
+
+    if (resetButton) {
+
+        resetButton.addEventListener(
+            "click",
+            resetFilters
+        );
+
+    }
+
+}
+
+
+// ============================================================
 // APPLY FILTERS
-// ==========================================
+// ============================================================
 
 function applyFilters() {
 
     const month =
-        document.getElementById(
+        getFilterValue(
             "monthFilter"
-        ).value;
+        );
 
 
     const status =
-        document.getElementById(
+        getFilterValue(
             "statusFilter"
-        ).value;
+        );
 
 
     const team =
-        document.getElementById(
+        getFilterValue(
             "teamFilter"
-        ).value;
+        );
 
 
     const auditor =
-        document.getElementById(
+        getFilterValue(
             "auditorFilter"
-        ).value;
+        );
 
 
     const tl =
-        document.getElementById(
+        getFilterValue(
             "tlFilter"
-        ).value;
+        );
 
 
     const counselor =
-        document.getElementById(
+        getFilterValue(
             "counselorFilter"
-        ).value;
+        );
 
 
     const reason =
-        document.getElementById(
+        getFilterValue(
             "reasonFilter"
-        ).value;
+        );
 
 
     filteredData =
-        rawData.filter(row => {
+        rawData.filter(
+
+            function (row) {
+
+                if (
+                    month !== "ALL" &&
+                    row.month !== month
+                ) {
+
+                    return false;
+
+                }
 
 
-            if (
-                month !== "ALL" &&
-                row.month !== month
-            )
-                return false;
+                if (
+                    status !== "ALL" &&
+                    row.status !== status
+                ) {
+
+                    return false;
+
+                }
 
 
-            if (
-                status !== "ALL" &&
-                row.status !== status
-            )
-                return false;
+                if (
+                    team !== "ALL" &&
+                    row.team !== team
+                ) {
+
+                    return false;
+
+                }
 
 
-            if (
-                team !== "ALL" &&
-                row.team !== team
-            )
-                return false;
+                if (
+                    auditor !== "ALL" &&
+                    row.auditor !== auditor
+                ) {
+
+                    return false;
+
+                }
 
 
-            if (
-                auditor !== "ALL" &&
-                row.auditor !== auditor
-            )
-                return false;
+                if (
+                    tl !== "ALL" &&
+                    row.tl !== tl
+                ) {
+
+                    return false;
+
+                }
 
 
-            if (
-                tl !== "ALL" &&
-                row.tl !== tl
-            )
-                return false;
+                if (
+                    counselor !== "ALL" &&
+                    row.counselor !== counselor
+                ) {
+
+                    return false;
+
+                }
 
 
-            if (
-                counselor !== "ALL" &&
-                row.counselor !== counselor
-            )
-                return false;
+                if (
+                    reason !== "ALL" &&
+                    row.reason !== reason
+                ) {
+
+                    return false;
+
+                }
 
 
-            if (
-                reason !== "ALL" &&
-                row.reason !== reason
-            )
-                return false;
+                return true;
 
+            }
 
-            return true;
-
-        });
+        );
 
 
     updateDashboard();
@@ -414,18 +851,85 @@ function applyFilters() {
 }
 
 
-// ==========================================
-// UPDATE DASHBOARD
-// ==========================================
+// ============================================================
+// GET FILTER VALUE
+// ============================================================
 
-function updateDashboard() {
+function getFilterValue(id) {
 
-    if (!filteredData.length) {
+    const element =
+        document.getElementById(
+            id
+        );
 
-        filteredData = [...rawData];
+
+    if (!element) {
+
+        return "ALL";
 
     }
 
+
+    return element.value;
+
+}
+
+
+// ============================================================
+// RESET FILTERS
+// ============================================================
+
+function resetFilters() {
+
+    const filters = [
+
+        "monthFilter",
+        "statusFilter",
+        "teamFilter",
+        "auditorFilter",
+        "tlFilter",
+        "counselorFilter",
+        "reasonFilter"
+
+    ];
+
+
+    filters.forEach(
+
+        function (id) {
+
+            const element =
+                document.getElementById(
+                    id
+                );
+
+
+            if (element) {
+
+                element.value =
+                    "ALL";
+
+            }
+
+        }
+
+    );
+
+
+    filteredData =
+        [...rawData];
+
+
+    updateDashboard();
+
+}
+
+
+// ============================================================
+// UPDATE DASHBOARD
+// ============================================================
+
+function updateDashboard() {
 
     updateKPIs();
 
@@ -436,9 +940,9 @@ function updateDashboard() {
 }
 
 
-// ==========================================
-// KPI
-// ==========================================
+// ============================================================
+// UPDATE KPIs
+// ============================================================
 
 function updateKPIs() {
 
@@ -448,132 +952,149 @@ function updateKPIs() {
 
     const fatal =
         filteredData.filter(
-            x => x.status === "Fatal"
+
+            function (row) {
+
+                return row.status === "Fatal";
+
+            }
+
         ).length;
 
 
     const warning =
         filteredData.filter(
-            x => x.status === "Warning"
+
+            function (row) {
+
+                return row.status === "Warning";
+
+            }
+
         ).length;
 
 
     const fatalRate =
+        total > 0
+            ? ((fatal / total) * 100)
+                .toFixed(1)
+            : "0.0";
+
+
+    setText(
+        "totalAudits",
         total
-            ? ((fatal / total) * 100).toFixed(1)
-            : 0;
+    );
 
 
-    document.getElementById(
-        "totalAudits"
-    ).textContent = total;
+    setText(
+        "totalFatal",
+        fatal
+    );
 
 
-    document.getElementById(
-        "totalFatal"
-    ).textContent = fatal;
+    setText(
+        "totalWarning",
+        warning
+    );
 
 
-    document.getElementById(
-        "totalWarning"
-    ).textContent = warning;
+    setText(
+        "fatalRate",
+        fatalRate + "%"
+    );
 
 
-    document.getElementById(
-        "fatalRate"
-    ).textContent =
-        fatalRate + "%";
+    setText(
+        "uniqueAuditors",
+        getUniqueCount(
+            "auditor"
+        )
+    );
 
 
-    document.getElementById(
-        "uniqueAuditors"
-    ).textContent =
-        unique("auditor");
+    setText(
+        "uniqueCounselors",
+        getUniqueCount(
+            "counselor"
+        )
+    );
 
 
-    document.getElementById(
-        "uniqueCounselors"
-    ).textContent =
-        unique("counselor");
-
-
-    document.getElementById(
-        "uniqueTLs"
-    ).textContent =
-        unique("tl");
+    setText(
+        "uniqueTLs",
+        getUniqueCount(
+            "tl"
+        )
+    );
 
 }
 
 
-function unique(property) {
+// ============================================================
+// SET TEXT
+// ============================================================
+
+function setText(
+    id,
+    value
+) {
+
+    const element =
+        document.getElementById(
+            id
+        );
+
+
+    if (element) {
+
+        element.textContent =
+            value;
+
+    }
+
+}
+
+
+// ============================================================
+// UNIQUE COUNT
+// ============================================================
+
+function getUniqueCount(
+    property
+) {
 
     return new Set(
+
         filteredData
-        .map(x => x[property])
-        .filter(
-            x =>
-                x &&
-                x !== "Unknown"
-        )
+            .map(
+                function (row) {
+
+                    return row[property];
+
+                }
+            )
+            .filter(
+
+                function (value) {
+
+                    return (
+                        value &&
+                        value !== "Unknown"
+                    );
+
+                }
+
+            )
+
     ).size;
 
 }
 
 
-// ==========================================
-// GROUP DATA
-// ==========================================
-
-function groupBy(
-    data,
-    property
-) {
-
-    const result = {};
-
-    data.forEach(row => {
-
-        const key =
-            row[property] ||
-            "Unknown";
-
-
-        result[key] =
-            (result[key] || 0) + 1;
-
-    });
-
-
-    return result;
-
-}
-
-
-// ==========================================
-// MONTH ORDER
-// ==========================================
-
-const monthOrder = [
-
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December"
-
-];
-
-
-// ==========================================
-// UPDATE CHARTS
-// ==========================================
+// ============================================================
+// UPDATE ALL CHARTS
+// ============================================================
 
 function updateCharts() {
 
@@ -594,80 +1115,193 @@ function updateCharts() {
 }
 
 
-// ==========================================
+// ============================================================
+// GROUP DATA
+// ============================================================
+
+function groupBy(
+    data,
+    property
+) {
+
+    const result = {};
+
+
+    data.forEach(
+
+        function (row) {
+
+            const key =
+                row[property] ||
+                "Unknown";
+
+
+            result[key] =
+                (
+                    result[key] ||
+                    0
+                ) + 1;
+
+        }
+
+    );
+
+
+    return result;
+
+}
+
+
+// ============================================================
+// MONTH ORDER
+// ============================================================
+
+const MONTH_ORDER = [
+
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+    "Unknown"
+
+];
+
+
+// ============================================================
 // MONTHLY TREND
-// ==========================================
+// ============================================================
 
 function createMonthlyChart() {
 
-    const fatalByMonth = {};
+    const fatal =
+        {};
 
-    const warningByMonth = {};
-
-
-    filteredData.forEach(row => {
-
-        const month = row.month;
+    const warning =
+        {};
 
 
-        if (
-            row.status === "Fatal"
-        ) {
+    filteredData.forEach(
 
-            fatalByMonth[month] =
-                (fatalByMonth[month] || 0) + 1;
+        function (row) {
+
+            const month =
+                row.month;
+
+
+            if (
+                row.status === "Fatal"
+            ) {
+
+                fatal[month] =
+                    (
+                        fatal[month] ||
+                        0
+                    ) + 1;
+
+            }
+
+
+            if (
+                row.status === "Warning"
+            ) {
+
+                warning[month] =
+                    (
+                        warning[month] ||
+                        0
+                    ) + 1;
+
+            }
 
         }
 
-
-        if (
-            row.status === "Warning"
-        ) {
-
-            warningByMonth[month] =
-                (warningByMonth[month] || 0) + 1;
-
-        }
-
-    });
+    );
 
 
     const labels =
-        monthOrder.filter(
-            month =>
-                fatalByMonth[month] ||
-                warningByMonth[month]
+        MONTH_ORDER.filter(
+
+            function (month) {
+
+                return (
+                    fatal[month] ||
+                    warning[month]
+                );
+
+            }
+
         );
 
 
     renderChart(
+
         "monthlyTrend",
+
         "line",
+
         labels,
+
         [
+
             {
+
                 label: "Fatal",
-                data: labels.map(
-                    m => fatalByMonth[m] || 0
-                ),
-                tension: .3
+
+                data:
+                    labels.map(
+                        function (month) {
+
+                            return (
+                                fatal[month] ||
+                                0
+                            );
+
+                        }
+                    ),
+
+                tension: 0.3
+
             },
+
+
             {
+
                 label: "Warning",
-                data: labels.map(
-                    m => warningByMonth[m] || 0
-                ),
-                tension: .3
+
+                data:
+                    labels.map(
+                        function (month) {
+
+                            return (
+                                warning[month] ||
+                                0
+                            );
+
+                        }
+                    ),
+
+                tension: 0.3
+
             }
+
         ]
+
     );
 
 }
 
 
-// ==========================================
+// ============================================================
 // STATUS CHART
-// ==========================================
+// ============================================================
 
 function createStatusChart() {
 
@@ -679,32 +1313,50 @@ function createStatusChart() {
 
 
     renderChart(
+
         "statusChart",
+
         "doughnut",
+
         Object.keys(data),
+
         [
+
             {
+
                 data:
                     Object.values(data)
+
             }
+
         ]
+
     );
 
 }
 
 
-// ==========================================
-// REASON CHART
-// ==========================================
+// ============================================================
+// FATAL REASON CHART
+// ============================================================
 
 function createReasonChart() {
 
+    const fatalData =
+        filteredData.filter(
+
+            function (row) {
+
+                return row.status === "Fatal";
+
+            }
+
+        );
+
+
     const data =
         groupBy(
-            filteredData.filter(
-                x =>
-                    x.status === "Fatal"
-            ),
+            fatalData,
             "reason"
         );
 
@@ -712,72 +1364,158 @@ function createReasonChart() {
     const sorted =
         Object.entries(data)
         .sort(
-            (a,b) =>
-                b[1] - a[1]
+
+            function (a, b) {
+
+                return b[1] - a[1];
+
+            }
+
         )
         .slice(0, 12);
 
 
     renderChart(
+
         "reasonChart",
+
         "bar",
-        sorted.map(x => x[0]),
-        [
-            {
-                label: "Fatal Count",
-                data: sorted.map(x => x[1])
+
+        sorted.map(
+            function (item) {
+
+                return item[0];
+
             }
+        ),
+
+        [
+
+            {
+
+                label:
+                    "Fatal Count",
+
+                data:
+                    sorted.map(
+                        function (item) {
+
+                            return item[1];
+
+                        }
+                    )
+
+            }
+
         ],
+
         true
+
     );
 
 }
 
 
-// ==========================================
+// ============================================================
 // TEAM CHART
-// ==========================================
+// ============================================================
 
 function createTeamChart() {
 
+    const fatalData =
+        filteredData.filter(
+
+            function (row) {
+
+                return row.status === "Fatal";
+
+            }
+
+        );
+
+
     const data =
         groupBy(
-            filteredData.filter(
-                x =>
-                    x.status === "Fatal"
-            ),
+            fatalData,
             "team"
         );
 
 
-    renderChart(
-        "teamChart",
-        "bar",
-        Object.keys(data),
-        [
-            {
-                label: "Fatal Count",
-                data:
-                    Object.values(data)
+    const sorted =
+        Object.entries(data)
+        .sort(
+
+            function (a, b) {
+
+                return b[1] - a[1];
+
             }
-        ]
+
+        );
+
+
+    renderChart(
+
+        "teamChart",
+
+        "bar",
+
+        sorted.map(
+            function (item) {
+
+                return item[0];
+
+            }
+        ),
+
+        [
+
+            {
+
+                label:
+                    "Fatal Count",
+
+                data:
+                    sorted.map(
+                        function (item) {
+
+                            return item[1];
+
+                        }
+                    )
+
+            }
+
+        ],
+
+        true
+
     );
 
 }
 
 
-// ==========================================
-// AUDITOR
-// ==========================================
+// ============================================================
+// AUDITOR CHART
+// ============================================================
 
 function createAuditorChart() {
 
+    const fatalData =
+        filteredData.filter(
+
+            function (row) {
+
+                return row.status === "Fatal";
+
+            }
+
+        );
+
+
     const data =
         groupBy(
-            filteredData.filter(
-                x =>
-                    x.status === "Fatal"
-            ),
+            fatalData,
             "auditor"
         );
 
@@ -785,41 +1523,81 @@ function createAuditorChart() {
     const sorted =
         Object.entries(data)
         .sort(
-            (a,b) =>
-                b[1] - a[1]
+
+            function (a, b) {
+
+                return b[1] - a[1];
+
+            }
+
         )
         .slice(0, 15);
 
 
     renderChart(
+
         "auditorChart",
+
         "bar",
-        sorted.map(x => x[0]),
-        [
-            {
-                label: "Fatal Count",
-                data:
-                    sorted.map(x => x[1])
+
+        sorted.map(
+            function (item) {
+
+                return formatName(
+                    item[0]
+                );
+
             }
+        ),
+
+        [
+
+            {
+
+                label:
+                    "Fatal Count",
+
+                data:
+                    sorted.map(
+                        function (item) {
+
+                            return item[1];
+
+                        }
+                    )
+
+            }
+
         ],
+
         true
+
     );
 
 }
 
 
-// ==========================================
-// TL
-// ==========================================
+// ============================================================
+// TL CHART
+// ============================================================
 
 function createTLChart() {
 
+    const fatalData =
+        filteredData.filter(
+
+            function (row) {
+
+                return row.status === "Fatal";
+
+            }
+
+        );
+
+
     const data =
         groupBy(
-            filteredData.filter(
-                x =>
-                    x.status === "Fatal"
-            ),
+            fatalData,
             "tl"
         );
 
@@ -827,41 +1605,81 @@ function createTLChart() {
     const sorted =
         Object.entries(data)
         .sort(
-            (a,b) =>
-                b[1] - a[1]
+
+            function (a, b) {
+
+                return b[1] - a[1];
+
+            }
+
         )
         .slice(0, 15);
 
 
     renderChart(
+
         "tlChart",
+
         "bar",
-        sorted.map(x => x[0]),
-        [
-            {
-                label: "Fatal Count",
-                data:
-                    sorted.map(x => x[1])
+
+        sorted.map(
+            function (item) {
+
+                return formatName(
+                    item[0]
+                );
+
             }
+        ),
+
+        [
+
+            {
+
+                label:
+                    "Fatal Count",
+
+                data:
+                    sorted.map(
+                        function (item) {
+
+                            return item[1];
+
+                        }
+                    )
+
+            }
+
         ],
+
         true
+
     );
 
 }
 
 
-// ==========================================
-// COUNSELOR
-// ==========================================
+// ============================================================
+// COUNSELOR CHART
+// ============================================================
 
 function createCounselorChart() {
 
+    const fatalData =
+        filteredData.filter(
+
+            function (row) {
+
+                return row.status === "Fatal";
+
+            }
+
+        );
+
+
     const data =
         groupBy(
-            filteredData.filter(
-                x =>
-                    x.status === "Fatal"
-            ),
+            fatalData,
             "counselor"
         );
 
@@ -869,40 +1687,90 @@ function createCounselorChart() {
     const sorted =
         Object.entries(data)
         .sort(
-            (a,b) =>
-                b[1] - a[1]
+
+            function (a, b) {
+
+                return b[1] - a[1];
+
+            }
+
         )
-        .slice(0, 20);
+        .slice(0, 25);
 
 
     renderChart(
+
         "counselorChart",
+
         "bar",
-        sorted.map(x => x[0]),
-        [
-            {
-                label: "Fatal Count",
-                data:
-                    sorted.map(x => x[1])
+
+        sorted.map(
+            function (item) {
+
+                return formatName(
+                    item[0]
+                );
+
             }
+        ),
+
+        [
+
+            {
+
+                label:
+                    "Fatal Count",
+
+                data:
+                    sorted.map(
+                        function (item) {
+
+                            return item[1];
+
+                        }
+                    )
+
+            }
+
         ],
+
         true
+
     );
 
 }
 
 
-// ==========================================
-// CHART RENDERER
-// ==========================================
+// ============================================================
+// GENERIC CHART RENDERER
+// ============================================================
 
 function renderChart(
+
     id,
+
     type,
+
     labels,
+
     datasets,
+
     horizontal = false
+
 ) {
+
+    const canvas =
+        document.getElementById(
+            id
+        );
+
+
+    if (!canvas) {
+
+        return;
+
+    }
+
 
     if (charts[id]) {
 
@@ -912,98 +1780,212 @@ function renderChart(
 
 
     const ctx =
-        document
-        .getElementById(id)
-        .getContext("2d");
+        canvas.getContext(
+            "2d"
+        );
 
 
     charts[id] =
         new Chart(
+
             ctx,
+
             {
 
-                type: type,
+                type:
+                    type,
 
-                data: {
 
-                    labels: labels,
+                data:
+                    {
 
-                    datasets: datasets
+                        labels:
+                            labels,
 
-                },
-
-                options: {
-
-                    responsive: true,
-
-                    maintainAspectRatio: false,
-
-                    indexAxis:
-                        horizontal
-                            ? "y"
-                            : "x",
-
-                    plugins: {
-
-                        legend: {
-
-                            labels: {
-
-                                color:
-                                    "#e5e7eb"
-
-                            }
-
-                        }
+                        datasets:
+                            datasets
 
                     },
 
-                    scales:
-                        type === "doughnut"
-                            ? {}
-                            : {
 
-                                x: {
+                options:
+                    {
 
-                                    ticks: {
-                                        color:
-                                            "#94a3b8"
-                                    },
+                        responsive:
+                            true,
 
-                                    grid: {
-                                        color:
-                                            "#1e293b"
+                        maintainAspectRatio:
+                            false,
+
+
+                        indexAxis:
+                            horizontal
+                                ? "y"
+                                : "x",
+
+
+                        plugins:
+                            {
+
+                                legend:
+                                    {
+
+                                        labels:
+                                            {
+
+                                                color:
+                                                    "#e5e7eb"
+
+                                            }
+
                                     }
 
-                                },
+                            },
 
-                                y: {
 
-                                    ticks: {
-                                        color:
-                                            "#94a3b8"
-                                    },
+                        scales:
+                            type === "doughnut"
+                                ? {}
 
-                                    grid: {
-                                        color:
-                                            "#1e293b"
-                                    }
+                                :
+
+                                {
+
+                                    x:
+                                        {
+
+                                            ticks:
+                                                {
+
+                                                    color:
+                                                        "#94a3b8"
+
+                                                },
+
+                                            grid:
+                                                {
+
+                                                    color:
+                                                        "#1e293b"
+
+                                                }
+
+                                        },
+
+
+                                    y:
+                                        {
+
+                                            ticks:
+                                                {
+
+                                                    color:
+                                                        "#94a3b8"
+
+                                                },
+
+                                            grid:
+                                                {
+
+                                                    color:
+                                                        "#1e293b"
+
+                                                }
+
+                                        }
 
                                 }
 
-                            }
-
-                }
+                    }
 
             }
+
         );
 
 }
 
 
-// ==========================================
-// DATA TABLE
-// ==========================================
+// ============================================================
+// FORMAT EMAIL AS NAME
+// ============================================================
+
+function formatName(
+    value
+) {
+
+    if (
+        !value ||
+        value === "Unknown"
+    ) {
+
+        return "Unknown";
+
+    }
+
+
+    if (
+        !String(value)
+        .includes("@")
+    ) {
+
+        return value;
+
+    }
+
+
+    let name =
+        String(value)
+        .split("@")[0];
+
+
+    name =
+        name.replace(
+            /[0-9]+$/g,
+            ""
+        );
+
+
+    name =
+        name.replace(
+            /[._-]+/g,
+            " "
+        );
+
+
+    name =
+        name
+            .split(" ")
+            .filter(
+                function (word) {
+
+                    return word.length > 0;
+
+                }
+            )
+            .map(
+                function (word) {
+
+                    return (
+                        word.charAt(0)
+                        .toUpperCase() +
+                        word
+                            .slice(1)
+                            .toLowerCase()
+                    );
+
+                }
+            )
+            .join(" ");
+
+
+    return name;
+
+}
+
+
+// ============================================================
+// UPDATE DATA TABLE
+// ============================================================
 
 function updateTable() {
 
@@ -1013,12 +1995,26 @@ function updateTable() {
         );
 
 
+    if (!tbody) {
+
+        return;
+
+    }
+
+
     tbody.innerHTML = "";
 
 
-    filteredData
-        .slice(0, 100)
-        .forEach(row => {
+    const rowsToShow =
+        filteredData.slice(
+            0,
+            100
+        );
+
+
+    rowsToShow.forEach(
+
+        function (row) {
 
             const tr =
                 document.createElement(
@@ -1032,128 +2028,185 @@ function updateTable() {
                     : "badge-warning";
 
 
+            const recording =
+                row[
+                    "Call recording link"
+                ];
+
+
+            const recordingHTML =
+                recording
+                    ?
+
+                    `<a
+                        class="record-link"
+                        href="${escapeHTML(recording)}"
+                        target="_blank"
+                        rel="noopener noreferrer">
+                        Open
+                     </a>`
+
+                    :
+
+                    "-";
+
+
             tr.innerHTML = `
 
                 <td>
-                    ${row["Audit Date"] || "-"}
+                    ${escapeHTML(
+                        row["Audit Date"] || "-"
+                    )}
                 </td>
 
+
                 <td>
-                    <span class="badge ${statusClass}">
-                        ${row.status}
+
+                    <span
+                        class="badge ${statusClass}">
+
+                        ${escapeHTML(
+                            row.status
+                        )}
+
                     </span>
+
                 </td>
 
+
                 <td>
-                    ${row.auditor}
+                    ${escapeHTML(
+                        formatName(
+                            row.auditor
+                        )
+                    )}
                 </td>
 
+
                 <td>
-                    ${row.counselor}
+                    ${escapeHTML(
+                        formatName(
+                            row.counselor
+                        )
+                    )}
                 </td>
 
+
                 <td>
-                    ${row.tl}
+                    ${escapeHTML(
+                        formatName(
+                            row.tl
+                        )
+                    )}
                 </td>
 
+
                 <td>
-                    ${row.team}
+                    ${escapeHTML(
+                        row.team
+                    )}
                 </td>
 
+
                 <td>
-                    ${row.reason}
+                    ${escapeHTML(
+                        row.reason
+                    )}
                 </td>
 
+
                 <td>
-                    ${row["Lead Id"] || "-"}
+                    ${escapeHTML(
+                        row["Lead Id"] || "-"
+                    )}
                 </td>
 
+
                 <td>
-
-                    ${
-                        row["Call recording link"]
-                        ?
-                        `<a
-                            class="record-link"
-                            href="${row["Call recording link"]}"
-                            target="_blank">
-                            Open
-                        </a>`
-                        :
-                        "-"
-                    }
-
+                    ${recordingHTML}
                 </td>
 
             `;
 
 
-            tbody.appendChild(tr);
+            tbody.appendChild(
+                tr
+            );
 
-        });
+        }
+
+    );
 
 
-    document.getElementById(
-        "recordCount"
-    ).textContent =
-        filteredData.length +
-        " records";
+    const recordCount =
+        document.getElementById(
+            "recordCount"
+        );
+
+
+    if (recordCount) {
+
+        recordCount.textContent =
+            filteredData.length +
+            " records";
+
+    }
 
 }
 
 
-// ==========================================
-// FILTER EVENTS
-// ==========================================
+// ============================================================
+// ESCAPE HTML
+// ============================================================
 
-[
-    "monthFilter",
-    "statusFilter",
-    "teamFilter",
-    "auditorFilter",
-    "tlFilter",
-    "counselorFilter",
-    "reasonFilter"
+function escapeHTML(
+    value
+) {
 
-].forEach(id => {
+    if (
+        value === undefined ||
+        value === null
+    ) {
 
-    document
-        .getElementById(id)
-        .addEventListener(
-            "change",
-            applyFilters
+        return "";
+
+    }
+
+
+    return String(value)
+
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+
+        .replace(
+            /</g,
+            "&lt;"
+        )
+
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
         );
 
-});
+}
 
 
-// ==========================================
-// RESET
-// ==========================================
+// ============================================================
+// END
+// ============================================================
 
-document
-    .getElementById(
-        "resetFilters"
-    )
-    .addEventListener(
-        "click",
-        function() {
-
-            document
-                .querySelectorAll(
-                    ".form-select"
-                )
-                .forEach(
-                    select =>
-                        select.value = "ALL"
-                );
-
-
-            filteredData =
-                [...rawData];
-
-
-            updateDashboard();
-
-        }
-    );
+console.log(
+    "Fatal QA Dashboard JavaScript loaded."
+);
