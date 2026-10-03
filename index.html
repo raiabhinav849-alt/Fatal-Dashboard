@@ -1,332 +1,279 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
 
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>Fatal QA Dashboard 2026</title>
 
     <!-- Bootstrap -->
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet">
+        rel="stylesheet"
+    >
 
     <!-- Bootstrap Icons -->
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
-        rel="stylesheet">
+        rel="stylesheet"
+    >
 
-    <!-- Dashboard CSS -->
-    <link rel="stylesheet"
-          href="style.css">
-
-    <!-- Chart.js -->
-    <script
-        src="https://cdn.jsdelivr.net/npm/chart.js">
-    </script>
-
-    <!-- Papa Parse -->
-    <script
-        src="https://cdn.jsdelivr.net/npm/papaparse@5.4.3/papaparse.min.js">
-    </script>
-
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
 </head>
-
 
 <body>
 
+    <!-- ============================= -->
+    <!-- HEADER -->
+    <!-- ============================= -->
 
-<div class="container-fluid dashboard">
+    <nav class="navbar navbar-dark bg-dark shadow-sm">
+        <div class="container-fluid px-4">
 
-
-    <!-- =====================================
-         HEADER
-    ====================================== -->
-
-    <div class="dashboard-header">
-
-        <div>
-
-            <h1>
-
-                <i class="bi bi-bar-chart-fill"></i>
-
+            <span class="navbar-brand mb-0 h1">
+                <i class="bi bi-shield-check"></i>
                 Fatal QA Dashboard 2026
+            </span>
 
-            </h1>
+            <span class="text-light small">
+                Quality & Training
+            </span>
 
-            <p>
+        </div>
+    </nav>
 
-                Quality & Training |
-                Fatal / Warning Analysis
 
+    <!-- ============================= -->
+    <!-- MAIN CONTAINER -->
+    <!-- ============================= -->
+
+    <div class="container-fluid py-4">
+
+        <!-- DATA ERROR -->
+        <div
+            id="dataError"
+            class="alert alert-danger d-none"
+            role="alert"
+        >
+            <h5 class="alert-heading">
+                ⚠️ Data Loading Error
+            </h5>
+
+            <p class="mb-1">
+                Unable to load the CSV file.
             </p>
 
+            <p class="mb-1">
+                Check that your repository has:
+            </p>
+
+            <code>
+                data/Fatal Dashboard 2026 - Fatal.csv
+            </code>
+
+            <hr>
+
+            <div id="dataErrorMessage"></div>
         </div>
 
 
-        <div>
+        <!-- ============================= -->
+        <!-- FILTERS -->
+        <!-- ============================= -->
 
-            <span class="status-badge">
+        <div class="card shadow-sm mb-4">
 
-                <i class="bi bi-circle-fill"></i>
-
-                Live Data
-
-            </span>
-
-        </div>
-
-    </div>
-
-
-
-    <!-- =====================================
-         DATA ERROR MESSAGE
-    ====================================== -->
-
-    <div id="dataError"
-         style="display:none;"
-         class="alert alert-danger">
-
-    </div>
-
-
-
-    <!-- =====================================
-         FILTER SECTION
-    ====================================== -->
-
-    <div class="filter-card">
-
-        <div class="row g-3">
-
-
-            <!-- MONTH -->
-
-            <div class="col-md-2">
-
-                <label>
-                    Month
-                </label>
-
-                <select
-                    id="monthFilter"
-                    class="form-select">
-
-                    <option value="ALL">
-                        All Months
-                    </option>
-
-                </select>
-
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-funnel"></i>
+                    Filters
+                </h5>
             </div>
 
-
-
-            <!-- STATUS -->
-
-            <div class="col-md-2">
-
-                <label>
-                    Status
-                </label>
-
-                <select
-                    id="statusFilter"
-                    class="form-select">
-
-                    <option value="ALL">
-                        Fatal + Warning
-                    </option>
-
-                    <option value="Fatal">
-                        Fatal
-                    </option>
-
-                    <option value="Warning">
-                        Warning
-                    </option>
-
-                </select>
-
-            </div>
-
-
-
-            <!-- TEAM -->
-
-            <div class="col-md-2">
-
-                <label>
-                    Team Type
-                </label>
-
-                <select
-                    id="teamFilter"
-                    class="form-select">
-
-                    <option value="ALL">
-                        All Teams
-                    </option>
-
-                </select>
-
-            </div>
-
-
-
-            <!-- AUDITOR -->
-
-            <div class="col-md-2">
-
-                <label>
-                    Auditor
-                </label>
-
-                <select
-                    id="auditorFilter"
-                    class="form-select">
-
-                    <option value="ALL">
-                        All Auditors
-                    </option>
-
-                </select>
-
-            </div>
-
-
-
-            <!-- TL -->
-
-            <div class="col-md-2">
-
-                <label>
-                    TL
-                </label>
-
-                <select
-                    id="tlFilter"
-                    class="form-select">
-
-                    <option value="ALL">
-                        All TLs
-                    </option>
-
-                </select>
-
-            </div>
-
-
-
-            <!-- COUNSELOR -->
-
-            <div class="col-md-2">
-
-                <label>
-                    Counselor
-                </label>
-
-                <select
-                    id="counselorFilter"
-                    class="form-select">
-
-                    <option value="ALL">
-                        All Counselors
-                    </option>
-
-                </select>
-
-            </div>
-
-        </div>
-
-
-
-        <!-- SECOND FILTER ROW -->
-
-        <div class="row mt-3">
-
-
-            <!-- FATAL REASON -->
-
-            <div class="col-md-10">
-
-                <label>
-                    Fatal Reason
-                </label>
-
-                <select
-                    id="reasonFilter"
-                    class="form-select">
-
-                    <option value="ALL">
-                        All Fatal Reasons
-                    </option>
-
-                </select>
-
-            </div>
-
-
-
-            <!-- RESET -->
-
-            <div class="col-md-2 d-flex align-items-end">
-
-                <button
-                    id="resetFilters"
-                    class="btn btn-outline-light w-100">
-
-                    <i class="bi bi-arrow-clockwise"></i>
-
-                    Reset Filters
-
-                </button>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-
-    <!-- =====================================
-         KPI CARDS
-    ====================================== -->
-
-    <div class="row g-3 mt-2">
-
-
-        <!-- TOTAL -->
-
-        <div class="col-md-3">
-
-            <div class="kpi-card">
-
-                <div class="kpi-icon">
-
-                    <i class="bi bi-clipboard-data"></i>
+            <div class="card-body">
+
+                <div class="row g-3">
+
+                    <!-- Month -->
+                    <div class="col-md-3">
+                        <label
+                            for="monthFilter"
+                            class="form-label fw-semibold"
+                        >
+                            Month
+                        </label>
+
+                        <select
+                            id="monthFilter"
+                            class="form-select"
+                        >
+                            <option value="All">All Months</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Status -->
+                    <div class="col-md-3">
+                        <label
+                            for="statusFilter"
+                            class="form-label fw-semibold"
+                        >
+                            Status
+                        </label>
+
+                        <select
+                            id="statusFilter"
+                            class="form-select"
+                        >
+                            <option value="All">All Status</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Team Type -->
+                    <div class="col-md-3">
+                        <label
+                            for="teamFilter"
+                            class="form-label fw-semibold"
+                        >
+                            Team Type
+                        </label>
+
+                        <select
+                            id="teamFilter"
+                            class="form-select"
+                        >
+                            <option value="All">All Teams</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Auditor -->
+                    <div class="col-md-3">
+                        <label
+                            for="auditorFilter"
+                            class="form-label fw-semibold"
+                        >
+                            Auditor
+                        </label>
+
+                        <select
+                            id="auditorFilter"
+                            class="form-select"
+                        >
+                            <option value="All">All Auditors</option>
+                        </select>
+                    </div>
+
+
+                    <!-- TL -->
+                    <div class="col-md-3">
+                        <label
+                            for="tlFilter"
+                            class="form-label fw-semibold"
+                        >
+                            TL
+                        </label>
+
+                        <select
+                            id="tlFilter"
+                            class="form-select"
+                        >
+                            <option value="All">All TLs</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Counselor -->
+                    <div class="col-md-3">
+                        <label
+                            for="counselorFilter"
+                            class="form-label fw-semibold"
+                        >
+                            Counselor
+                        </label>
+
+                        <select
+                            id="counselorFilter"
+                            class="form-select"
+                        >
+                            <option value="All">All Counselors</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Fatal Reason -->
+                    <div class="col-md-3">
+                        <label
+                            for="reasonFilter"
+                            class="form-label fw-semibold"
+                        >
+                            Fatal Reason
+                        </label>
+
+                        <select
+                            id="reasonFilter"
+                            class="form-select"
+                        >
+                            <option value="All">All Reasons</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Reset -->
+                    <div class="col-md-3 d-flex align-items-end">
+
+                        <button
+                            id="resetFilters"
+                            class="btn btn-outline-danger w-100"
+                        >
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            Reset Filters
+                        </button>
+
+                    </div>
 
                 </div>
 
-                <div>
+            </div>
+        </div>
 
-                    <div class="kpi-title">
-                        Total Audits
-                    </div>
 
-                    <div
-                        id="totalAudits"
-                        class="kpi-value">
+        <!-- ============================= -->
+        <!-- MAIN KPI CARDS -->
+        <!-- ============================= -->
 
-                        0
+        <div class="row g-3 mb-4">
+
+            <!-- Total Audits -->
+            <div class="col-md-3">
+
+                <div class="card shadow-sm h-100 border-0">
+
+                    <div class="card-body">
+
+                        <div class="d-flex justify-content-between">
+
+                            <div>
+                                <h6 class="text-muted">
+                                    Total Audits
+                                </h6>
+
+                                <h2
+                                    id="totalAudits"
+                                    class="fw-bold mb-0"
+                                >
+                                    0
+                                </h2>
+                            </div>
+
+                            <div class="fs-1 text-primary">
+                                <i class="bi bi-clipboard-data"></i>
+                            </div>
+
+                        </div>
 
                     </div>
 
@@ -334,33 +281,36 @@
 
             </div>
 
-        </div>
 
+            <!-- Fatal -->
+            <div class="col-md-3">
 
+                <div class="card shadow-sm h-100 border-0">
 
-        <!-- FATAL -->
+                    <div class="card-body">
 
-        <div class="col-md-3">
+                        <div class="d-flex justify-content-between">
 
-            <div class="kpi-card fatal-card">
+                            <div>
 
-                <div class="kpi-icon">
+                                <h6 class="text-muted">
+                                    Fatal
+                                </h6>
 
-                    <i class="bi bi-x-circle"></i>
+                                <h2
+                                    id="totalFatal"
+                                    class="fw-bold mb-0 text-danger"
+                                >
+                                    0
+                                </h2>
 
-                </div>
+                            </div>
 
-                <div>
+                            <div class="fs-1 text-danger">
+                                <i class="bi bi-x-octagon"></i>
+                            </div>
 
-                    <div class="kpi-title">
-                        Fatal
-                    </div>
-
-                    <div
-                        id="totalFatal"
-                        class="kpi-value">
-
-                        0
+                        </div>
 
                     </div>
 
@@ -368,33 +318,73 @@
 
             </div>
 
-        </div>
 
+            <!-- Warning -->
+            <div class="col-md-3">
 
+                <div class="card shadow-sm h-100 border-0">
 
-        <!-- WARNING -->
+                    <div class="card-body">
 
-        <div class="col-md-3">
+                        <div class="d-flex justify-content-between">
 
-            <div class="kpi-card warning-card">
+                            <div>
 
-                <div class="kpi-icon">
+                                <h6 class="text-muted">
+                                    Warning
+                                </h6>
 
-                    <i class="bi bi-exclamation-triangle"></i>
+                                <h2
+                                    id="totalWarning"
+                                    class="fw-bold mb-0 text-warning"
+                                >
+                                    0
+                                </h2>
+
+                            </div>
+
+                            <div class="fs-1 text-warning">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </div>
+
+                        </div>
+
+                    </div>
 
                 </div>
 
-                <div>
+            </div>
 
-                    <div class="kpi-title">
-                        Warning
-                    </div>
 
-                    <div
-                        id="totalWarning"
-                        class="kpi-value">
+            <!-- Fatal Rate -->
+            <div class="col-md-3">
 
-                        0
+                <div class="card shadow-sm h-100 border-0">
+
+                    <div class="card-body">
+
+                        <div class="d-flex justify-content-between">
+
+                            <div>
+
+                                <h6 class="text-muted">
+                                    Fatal Rate
+                                </h6>
+
+                                <h2
+                                    id="fatalRate"
+                                    class="fw-bold mb-0"
+                                >
+                                    0%
+                                </h2>
+
+                            </div>
+
+                            <div class="fs-1 text-danger">
+                                <i class="bi bi-percent"></i>
+                            </div>
+
+                        </div>
 
                     </div>
 
@@ -405,30 +395,79 @@
         </div>
 
 
+        <!-- ============================= -->
+        <!-- SECONDARY KPI CARDS -->
+        <!-- ============================= -->
 
-        <!-- FATAL RATE -->
+        <div class="row g-3 mb-4">
 
-        <div class="col-md-3">
+            <!-- Auditors -->
+            <div class="col-md-4">
 
-            <div class="kpi-card">
+                <div class="card shadow-sm border-0">
 
-                <div class="kpi-icon">
+                    <div class="card-body">
 
-                    <i class="bi bi-percent"></i>
+                        <h6 class="text-muted">
+                            Unique Auditors
+                        </h6>
+
+                        <h3
+                            id="uniqueAuditors"
+                            class="fw-bold"
+                        >
+                            0
+                        </h3>
+
+                    </div>
 
                 </div>
 
-                <div>
+            </div>
 
-                    <div class="kpi-title">
-                        Fatal Rate
+
+            <!-- Counselors -->
+            <div class="col-md-4">
+
+                <div class="card shadow-sm border-0">
+
+                    <div class="card-body">
+
+                        <h6 class="text-muted">
+                            Unique Counselors
+                        </h6>
+
+                        <h3
+                            id="uniqueCounselors"
+                            class="fw-bold"
+                        >
+                            0
+                        </h3>
+
                     </div>
 
-                    <div
-                        id="fatalRate"
-                        class="kpi-value">
+                </div>
 
-                        0%
+            </div>
+
+
+            <!-- TLs -->
+            <div class="col-md-4">
+
+                <div class="card shadow-sm border-0">
+
+                    <div class="card-body">
+
+                        <h6 class="text-muted">
+                            Unique TLs
+                        </h6>
+
+                        <h3
+                            id="uniqueTLs"
+                            class="fw-bold"
+                        >
+                            0
+                        </h3>
 
                     </div>
 
@@ -438,101 +477,274 @@
 
         </div>
 
-    </div>
 
+        <!-- ============================= -->
+        <!-- MONTHLY TREND -->
+        <!-- ============================= -->
 
+        <div class="card shadow-sm mb-4">
 
-    <!-- =====================================
-         SECONDARY KPIs
-    ====================================== -->
+            <div class="card-header">
 
-    <div class="row g-3 mt-1">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up"></i>
+                    Monthly Fatal Trend
+                </h5>
 
+            </div>
 
-        <div class="col-md-4">
+            <div class="card-body">
 
-            <div class="mini-kpi">
-
-                <span>
-                    Unique Auditors
-                </span>
-
-                <strong id="uniqueAuditors">
-                    0
-                </strong>
+                <div style="height: 350px;">
+                    <canvas id="monthlyTrendChart"></canvas>
+                </div>
 
             </div>
 
         </div>
 
 
+        <!-- ============================= -->
+        <!-- FATAL VS WARNING -->
+        <!-- ============================= -->
 
-        <div class="col-md-4">
+        <div class="row g-4 mb-4">
 
-            <div class="mini-kpi">
+            <div class="col-lg-6">
 
-                <span>
-                    Unique Counselors
-                </span>
+                <div class="card shadow-sm h-100">
 
-                <strong id="uniqueCounselors">
-                    0
-                </strong>
+                    <div class="card-header">
+
+                        <h5 class="mb-0">
+                            Fatal vs Warning
+                        </h5>
+
+                    </div>
+
+                    <div class="card-body">
+
+                        <div style="height: 320px;">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Fatal Reasons -->
+
+            <div class="col-lg-6">
+
+                <div class="card shadow-sm h-100">
+
+                    <div class="card-header">
+
+                        <h5 class="mb-0">
+                            Fatal Reasons
+                        </h5>
+
+                    </div>
+
+                    <div class="card-body">
+
+                        <div style="height: 320px;">
+                            <canvas id="reasonChart"></canvas>
+                        </div>
+
+                    </div>
+
+                </div>
 
             </div>
 
         </div>
 
 
+        <!-- ============================= -->
+        <!-- TEAM ANALYSIS -->
+        <!-- ============================= -->
 
-        <div class="col-md-4">
+        <div class="card shadow-sm mb-4">
 
-            <div class="mini-kpi">
+            <div class="card-header">
 
-                <span>
-                    Unique TLs
-                </span>
+                <h5 class="mb-0">
+                    <i class="bi bi-people"></i>
+                    Fatal by Team Type
+                </h5>
 
-                <strong id="uniqueTLs">
-                    0
-                </strong>
+            </div>
+
+            <div class="card-body">
+
+                <div style="height: 350px;">
+                    <canvas id="teamChart"></canvas>
+                </div>
 
             </div>
 
         </div>
 
-    </div>
+
+        <!-- ============================= -->
+        <!-- AUDITOR ANALYSIS -->
+        <!-- ============================= -->
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header">
+
+                <h5 class="mb-0">
+                    <i class="bi bi-person-badge"></i>
+                    Auditor-wise Fatal
+                </h5>
+
+            </div>
+
+            <div class="card-body">
+
+                <div style="height: 400px;">
+                    <canvas id="auditorChart"></canvas>
+                </div>
+
+            </div>
+
+        </div>
 
 
+        <!-- ============================= -->
+        <!-- TL ANALYSIS -->
+        <!-- ============================= -->
 
-    <!-- =====================================
-         MONTHLY TREND
-    ====================================== -->
+        <div class="card shadow-sm mb-4">
 
-    <div class="row g-3 mt-2">
+            <div class="card-header">
+
+                <h5 class="mb-0">
+                    <i class="bi bi-person-workspace"></i>
+                    TL-wise Fatal
+                </h5>
+
+            </div>
+
+            <div class="card-body">
+
+                <div style="height: 400px;">
+                    <canvas id="tlChart"></canvas>
+                </div>
+
+            </div>
+
+        </div>
 
 
-        <div class="col-lg-8">
+        <!-- ============================= -->
+        <!-- COUNSELOR ANALYSIS -->
+        <!-- ============================= -->
 
-            <div class="chart-card">
+        <div class="card shadow-sm mb-4">
 
-                <div class="chart-header">
+            <div class="card-header">
 
-                    <h5>
-                        Fatal / Warning Trend
+                <h5 class="mb-0">
+                    <i class="bi bi-person"></i>
+                    Counselor-wise Fatal
+                </h5>
+
+            </div>
+
+            <div class="card-body">
+
+                <div style="height: 450px;">
+                    <canvas id="counselorChart"></canvas>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ============================= -->
+        <!-- DETAILED DATA TABLE -->
+        <!-- ============================= -->
+
+        <div class="card shadow-sm mb-5">
+
+            <div class="card-header">
+
+                <div class="d-flex justify-content-between align-items-center">
+
+                    <h5 class="mb-0">
+                        <i class="bi bi-table"></i>
+                        Audit Details
                     </h5>
 
+                    <span
+                        id="tableCount"
+                        class="badge bg-secondary"
+                    >
+                        0 Records
+                    </span>
+
                 </div>
 
-                <div
-                    style="
-                    position:relative;
-                    height:300px;
-                    ">
+            </div>
 
-                    <canvas
-                        id="monthlyTrend">
-                    </canvas>
+
+            <div class="card-body p-0">
+
+                <div class="table-responsive">
+
+                    <table
+                        class="table table-hover table-striped mb-0"
+                    >
+
+                        <thead class="table-dark">
+
+                            <tr>
+
+                                <th>Audit Date</th>
+
+                                <th>Status</th>
+
+                                <th>Auditor</th>
+
+                                <th>Counselor</th>
+
+                                <th>TL</th>
+
+                                <th>Team</th>
+
+                                <th>Fatal Reason</th>
+
+                                <th>Lead ID</th>
+
+                                <th>Recording</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="dataTableBody">
+
+                            <tr>
+
+                                <td
+                                    colspan="9"
+                                    class="text-center py-4"
+                                >
+                                    Loading data...
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
 
                 </div>
 
@@ -540,306 +752,35 @@
 
         </div>
 
-
-
-        <!-- STATUS -->
-
-        <div class="col-lg-4">
-
-            <div class="chart-card">
-
-                <div class="chart-header">
-
-                    <h5>
-                        Fatal vs Warning
-                    </h5>
-
-                </div>
-
-                <div
-                    style="
-                    position:relative;
-                    height:300px;
-                    ">
-
-                    <canvas
-                        id="statusChart">
-                    </canvas>
-
-                </div>
-
-            </div>
-
-        </div>
 
     </div>
 
 
+    <!-- ============================= -->
+    <!-- JAVASCRIPT LIBRARIES -->
+    <!-- ============================= -->
 
-    <!-- =====================================
-         REASON / TEAM
-    ====================================== -->
+    <!-- Bootstrap JS -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    ></script>
 
-    <div class="row g-3 mt-2">
 
+    <!-- Chart.js -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/chart.js"
+    ></script>
 
-        <div class="col-lg-7">
 
-            <div class="chart-card">
+    <!-- PapaParse - CSV Reader -->
+    <!-- IMPORTANT: This MUST load before app.js -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"
+    ></script>
 
-                <div class="chart-header">
 
-                    <h5>
-                        Fatal Reasons
-                    </h5>
-
-                </div>
-
-                <div
-                    style="
-                    position:relative;
-                    height:350px;
-                    ">
-
-                    <canvas
-                        id="reasonChart">
-                    </canvas>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-
-        <div class="col-lg-5">
-
-            <div class="chart-card">
-
-                <div class="chart-header">
-
-                    <h5>
-                        Fatal by Team Type
-                    </h5>
-
-                </div>
-
-                <div
-                    style="
-                    position:relative;
-                    height:350px;
-                    ">
-
-                    <canvas
-                        id="teamChart">
-                    </canvas>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-
-    <!-- =====================================
-         AUDITOR / TL
-    ====================================== -->
-
-    <div class="row g-3 mt-2">
-
-
-        <div class="col-lg-6">
-
-            <div class="chart-card">
-
-                <div class="chart-header">
-
-                    <h5>
-                        Auditor-wise Fatal Count
-                    </h5>
-
-                </div>
-
-                <div
-                    style="
-                    position:relative;
-                    height:450px;
-                    ">
-
-                    <canvas
-                        id="auditorChart">
-                    </canvas>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-
-        <div class="col-lg-6">
-
-            <div class="chart-card">
-
-                <div class="chart-header">
-
-                    <h5>
-                        TL-wise Fatal Count
-                    </h5>
-
-                </div>
-
-                <div
-                    style="
-                    position:relative;
-                    height:450px;
-                    ">
-
-                    <canvas
-                        id="tlChart">
-                    </canvas>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-
-    <!-- =====================================
-         COUNSELOR
-    ====================================== -->
-
-    <div class="chart-card mt-3">
-
-        <div class="chart-header">
-
-            <h5>
-                Counselor-wise Fatal Count
-            </h5>
-
-        </div>
-
-        <div
-            style="
-            position:relative;
-            height:600px;
-            ">
-
-            <canvas
-                id="counselorChart">
-            </canvas>
-
-        </div>
-
-    </div>
-
-
-
-    <!-- =====================================
-         DATA TABLE
-    ====================================== -->
-
-    <div class="table-card mt-3">
-
-
-        <div class="table-header">
-
-            <h5>
-                Detailed Audit Records
-            </h5>
-
-            <span id="recordCount">
-                0 records
-            </span>
-
-        </div>
-
-
-
-        <div class="table-responsive">
-
-            <table
-                class="table table-dark table-hover">
-
-
-                <thead>
-
-                <tr>
-
-                    <th>
-                        Audit Date
-                    </th>
-
-                    <th>
-                        Status
-                    </th>
-
-                    <th>
-                        Auditor
-                    </th>
-
-                    <th>
-                        Counselor
-                    </th>
-
-                    <th>
-                        TL
-                    </th>
-
-                    <th>
-                        Team
-                    </th>
-
-                    <th>
-                        Fatal Reason
-                    </th>
-
-                    <th>
-                        Lead ID
-                    </th>
-
-                    <th>
-                        Recording
-                    </th>
-
-                </tr>
-
-                </thead>
-
-
-                <tbody
-                    id="dataTable">
-
-                </tbody>
-
-
-            </table>
-
-        </div>
-
-    </div>
-
-
-</div>
-
-
-
-<!-- =====================================
-     DASHBOARD JAVASCRIPT
-====================================== -->
-
-<script src="app.js"></script>
-
+    <!-- Your Dashboard JavaScript -->
+    <script src="app.js"></script>
 
 </body>
-
 </html>
