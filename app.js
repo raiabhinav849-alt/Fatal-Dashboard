@@ -1,41 +1,41 @@
 // ============================================================
-// FATAL QA DASHBOARD 2026
-// Complete Dashboard JavaScript
+// FATAL QA DASHBOARD 2026 - OPTIMIZED VERSION
 // ============================================================
 
+const CSV_FILE = "./data/Fatal Dashboard 2026 - Fatal.csv";
 
-// ============================================================
-// GLOBAL VARIABLES
-// ============================================================
-
-let rawData = [];
+let allData = [];
 let filteredData = [];
 
-const charts = {};
+let charts = {};
+
+let currentPage = 1;
+const ROWS_PER_PAGE = 25;
 
 
 // ============================================================
-// CSV FILE LOCATION
+// INITIAL LOAD
 // ============================================================
 
-const CSV_FILE =
-    "./data/Fatal Dashboard 2026 - Fatal.csv";
+document.addEventListener("DOMContentLoaded", () => {
+    loadData();
 
+    document
+        .getElementById("resetFilters")
+        .addEventListener("click", resetFilters);
 
-// ============================================================
-// START APPLICATION
-// ============================================================
-
-document.addEventListener(
-    "DOMContentLoaded",
-    function () {
-
-        loadData();
-
-        setupFilterEvents();
-
-    }
-);
+    [
+        "monthFilter",
+        "statusFilter",
+        "teamFilter",
+        "auditorFilter",
+        "tlFilter",
+        "counselorFilter",
+        "reasonFilter"
+    ].forEach(id => {
+        document.getElementById(id).addEventListener("change", applyFilters);
+    });
+});
 
 
 // ============================================================
@@ -46,195 +46,113 @@ async function loadData() {
 
     try {
 
-        console.log(
-            "Loading CSV:",
-            CSV_FILE
-        );
-
-
-        const response =
-            await fetch(CSV_FILE);
-
+        const response = await fetch(CSV_FILE, {
+            cache: "force-cache"
+        });
 
         if (!response.ok) {
-
             throw new Error(
-                "CSV could not be loaded. HTTP Status: " +
-                response.status
+                `CSV could not be loaded. HTTP Status: ${response.status}`
             );
-
         }
 
+        const csvText = await response.text();
 
-        const csvText =
-            await response.text();
+        allData = parseCSV(csvText)
+            .map(normalizeData)
+            .filter(row => row);
 
+        filteredData = [...allData];
 
-        console.log(
-            "CSV downloaded successfully."
-        );
+        populateFilters();
 
+        updateDashboard();
 
-        Papa.parse(
-            csvText,
-            {
+        console.log(`Loaded ${allData.length} records`);
 
-                header: true,
+    } catch (error) {
 
-                skipEmptyLines: true,
+        console.error(error);
 
-
-                complete:
-                    function (results) {
-
-                        console.log(
-                            "CSV rows:",
-                            results.data.length
-                        );
+        showError(error.message);
+    }
+}
 
 
-                        console.log(
-                            "CSV headers:",
-                            results.meta.fields
-                        );
+// ============================================================
+// FAST NATIVE CSV PARSER
+// No PapaParse required
+// ============================================================
 
+function parseCSV(text) {
 
-                        if (
-                            !results.data ||
-                            results.data.length === 0
-                        ) {
+    const rows = [];
+    let row = [];
+    let value = "";
+    let insideQuotes = false;
 
-                            showError(
-                                "CSV file was loaded but contains no data."
-                            );
+    for (let i = 0; i < text.length; i++) {
 
-                            return;
+        const char = text[i];
+        const next = text[i + 1];
 
-                        }
+        if (char === '"' && insideQuotes && next === '"') {
+            value += '"';
+            i++;
+        }
 
+        else if (char === '"') {
+            insideQuotes = !insideQuotes;
+        }
 
-                        rawData =
-                            results.data;
+        else if (char === "," && !insideQuotes) {
+            row.push(value);
+            value = "";
+        }
 
+        else if ((char === "\n" || char === "\r") && !insideQuotes) {
 
-                        normalizeData();
-
-
-                        filteredData =
-                            [...rawData];
-
-
-                        populateFilters();
-
-
-                        updateDashboard();
-
-
-                        hideLoadingMessage();
-
-                    },
-
-
-                error:
-                    function (error) {
-
-                        console.error(
-                            "PapaParse error:",
-                            error
-                        );
-
-
-                        showError(
-                            "Unable to read the CSV file."
-                        );
-
-                    }
-
+            if (char === "\r" && next === "\n") {
+                i++;
             }
-        );
 
+            row.push(value);
+            value = "";
+
+            if (row.some(cell => cell.trim() !== "")) {
+                rows.push(row);
+            }
+
+            row = [];
+        }
+
+        else {
+            value += char;
+        }
     }
 
+    if (value !== "" || row.length > 0) {
+        row.push(value);
 
-    catch (error) {
-
-        console.error(
-            "DATA LOAD ERROR:",
-            error
-        );
-
-
-        showError(
-
-            "Unable to load the CSV file.<br><br>" +
-
-            "<b>Check that your repository has:</b><br>" +
-
-            "<code>data/Fatal Dashboard 2026 - Fatal.csv</code><br><br>" +
-
-            "Error: " +
-            error.message
-
-        );
-
+        if (row.some(cell => cell.trim() !== "")) {
+            rows.push(row);
+        }
     }
 
-}
+    if (!rows.length) return [];
 
+    const headers = rows[0].map(h => h.trim());
 
-// ============================================================
-// ERROR MESSAGE
-// ============================================================
+    return rows.slice(1).map(row => {
 
-function showError(message) {
+        const obj = {};
 
-    const errorBox =
-        document.getElementById(
-            "dataError"
-        );
+        headers.forEach((header, index) => {
+            obj[header] = (row[index] || "").trim();
+        });
 
-
-    if (!errorBox) {
-
-        return;
-
-    }
-
-
-    errorBox.innerHTML =
-
-        "<strong>⚠️ Data Loading Error</strong>" +
-
-        "<br><br>" +
-
-        message;
-
-
-    errorBox.style.display =
-        "block";
-
-}
-
-
-// ============================================================
-// HIDE ERROR
-// ============================================================
-
-function hideLoadingMessage() {
-
-    const errorBox =
-        document.getElementById(
-            "dataError"
-        );
-
-
-    if (errorBox) {
-
-        errorBox.style.display =
-            "none";
-
-    }
-
+        return obj;
+    });
 }
 
 
@@ -242,126 +160,45 @@ function hideLoadingMessage() {
 // NORMALIZE DATA
 // ============================================================
 
-function normalizeData() {
+function normalizeData(row) {
 
-    rawData =
-        rawData.map(
+    return {
 
-            function (row) {
+        auditDate: cleanValue(row["Audit Date"]),
 
-                return {
+        callDate: cleanValue(row["Call Date"]),
 
-                    ...row,
+        status: cleanStatus(row["Fatal or Warning"]),
 
-                    status:
-                        cleanStatus(
-                            row[
-                                "Fatal or Warning"
-                            ]
-                        ),
+        month: cleanMonth(row["Month"]),
 
+        team: cleanValue(row["Team Type"]),
 
-                    month:
-                        cleanMonth(
-                            row["Month"]
-                        ),
+        auditor: cleanValue(row["Auditors Email Address"]),
 
+        counselor: cleanValue(row["Counselor Email Id"]),
 
-                    team:
-                        cleanValue(
-                            row["Team Type"]
-                        ),
+        tl: cleanValue(row["TL E-mail Id"]),
 
+        reason: normalizeReason(row["Fatal reason"]),
 
-                    auditor:
-                        cleanValue(
-                            row[
-                                "Auditors Email Address"
-                            ]
-                        ),
+        leadId: cleanValue(row["Lead Id"]),
 
+        recording: cleanValue(row["Call recording link"]),
 
-                    counselor:
-                        cleanValue(
-                            row[
-                                "Counselor Email Id"
-                            ]
-                        ),
+        durationMin: cleanValue(
+            row["Duration of call (Min)"]
+        ),
 
-
-                    tl:
-                        cleanValue(
-                            row[
-                                "TL E-mail Id"
-                            ]
-                        ),
-
-
-                    reason:
-                        normalizeReason(
-                            row[
-                                "Fatal reason"
-                            ]
-                        )
-
-                };
-
-            }
-
-        );
-
+        durationSec: cleanValue(
+            row["Duration of call (Secs)"]
+        )
+    };
 }
 
 
 // ============================================================
-// CLEAN STATUS
-// ============================================================
-
-function cleanStatus(value) {
-
-    if (
-        value === undefined ||
-        value === null
-    ) {
-
-        return "Unknown";
-
-    }
-
-
-    const text =
-        String(value)
-        .trim()
-        .toLowerCase();
-
-
-    if (
-        text === "fatal" ||
-        text.includes("fatal")
-    ) {
-
-        return "Fatal";
-
-    }
-
-
-    if (
-        text === "warning" ||
-        text.includes("warning")
-    ) {
-
-        return "Warning";
-
-    }
-
-
-    return "Unknown";
-
-}
-
-
-// ============================================================
-// CLEAN VALUE
+// CLEANING FUNCTIONS
 // ============================================================
 
 function cleanValue(value) {
@@ -371,348 +208,181 @@ function cleanValue(value) {
         value === null ||
         String(value).trim() === ""
     ) {
-
         return "Unknown";
-
     }
 
-
     return String(value).trim();
-
 }
 
 
-// ============================================================
-// CLEAN MONTH
-// ============================================================
+function cleanStatus(value) {
+
+    const v = String(value || "")
+        .trim()
+        .toLowerCase();
+
+    if (v.includes("fatal")) return "Fatal";
+
+    if (v.includes("warning")) return "Warning";
+
+    return "Unknown";
+}
+
 
 function cleanMonth(value) {
 
-    if (
-        value === undefined ||
-        value === null ||
-        String(value).trim() === ""
-    ) {
+    const v = String(value || "").trim();
 
-        return "Unknown";
+    if (!v) return "Unknown";
 
-    }
-
-
-    const text =
-        String(value)
-        .trim();
-
-
-    return text.charAt(0).toUpperCase() +
-           text.slice(1).toLowerCase();
-
+    return v;
 }
 
 
 // ============================================================
-// NORMALIZE FATAL REASON
+// REASON NORMALIZATION
 // ============================================================
 
 function normalizeReason(value) {
 
-    if (
-        value === undefined ||
-        value === null ||
-        String(value).trim() === ""
-    ) {
-
-        return "Unknown";
-
-    }
-
-
-    const text =
-        String(value)
+    const v = String(value || "")
         .trim()
         .toLowerCase();
 
-
-    // BLANK CALL
+    if (!v) return "Others";
 
     if (
-        text.includes("blank call") ||
-        text.includes("entire call") ||
-        text.includes("call is blank")
+        v.includes("blank call") ||
+        v.includes("blank")
     ) {
-
         return "Blank Call";
-
     }
 
-
-    // WRONG FEE
-
     if (
-        text.includes("wrong fee") ||
-        text.includes("wrong fees") ||
-        text.includes("fee explanation") ||
-        text.includes("incorrect fee")
+        v.includes("fee") ||
+        v.includes("fees") ||
+        v.includes("price")
     ) {
-
-        return "Wrong Fee";
-
+        return "Wrong Fee Explanation";
     }
 
-
-    // WRONG INFORMATION
-
     if (
-        text.includes("wrong info") ||
-        text.includes("wrong information") ||
-        text.includes("incorrect information")
+        v.includes("wrong information") ||
+        v.includes("wrong info") ||
+        v.includes("incorrect information")
     ) {
-
         return "Wrong Information";
-
     }
 
-
-    // CENTER RELATED
-
     if (
-        text.includes("center") &&
-        (
-            text.includes("wrong") ||
-            text.includes("incorrect") ||
-            text.includes("availability")
-        )
+        v.includes("center") ||
+        v.includes("centre")
     ) {
-
         return "Center Related";
-
     }
 
-
-    // RUDE / ABUSIVE
-
     if (
-        text.includes("rude") ||
-        text.includes("abusive") ||
-        text.includes("misbehav")
+        v.includes("rude") ||
+        v.includes("abusive")
     ) {
-
-        return "Rude / Abusive Behaviour";
-
+        return "Rude / Abusive";
     }
 
-
-    // MISLEADING INFORMATION
-
     if (
-        text.includes("mislead") ||
-        text.includes("misguid")
+        v.includes("misleading") ||
+        v.includes("mislead")
     ) {
-
         return "Misleading Information";
-
     }
-
 
     return "Others";
-
 }
 
 
 // ============================================================
-// FILTER OPTIONS
+// FILTER POPULATION
 // ============================================================
 
 function populateFilters() {
 
     populateSelect(
         "monthFilter",
-        "month"
+        uniqueValues("month"),
+        "All Months"
     );
 
+    populateSelect(
+        "statusFilter",
+        uniqueValues("status"),
+        "All Status"
+    );
 
     populateSelect(
         "teamFilter",
-        "team"
+        uniqueValues("team"),
+        "All Teams"
     );
-
 
     populateSelect(
         "auditorFilter",
-        "auditor"
+        uniqueValues("auditor"),
+        "All Auditors"
     );
-
 
     populateSelect(
         "tlFilter",
-        "tl"
+        uniqueValues("tl"),
+        "All TLs"
     );
-
 
     populateSelect(
         "counselorFilter",
-        "counselor"
+        uniqueValues("counselor"),
+        "All Counselors"
     );
-
 
     populateSelect(
         "reasonFilter",
-        "reason"
+        uniqueValues("reason"),
+        "All Reasons"
     );
-
 }
 
 
-// ============================================================
-// POPULATE SELECT
-// ============================================================
+function uniqueValues(key) {
 
-function populateSelect(
-    elementId,
-    property
-) {
-
-    const select =
-        document.getElementById(
-            elementId
-        );
-
-
-    if (!select) {
-
-        return;
-
-    }
-
-
-    const values =
-        Array.from(
-
-            new Set(
-
-                rawData
-                    .map(
-                        function (row) {
-
-                            return row[property];
-
-                        }
-                    )
-                    .filter(
-                        function (value) {
-
-                            return (
-                                value &&
-                                value !== "Unknown"
-                            );
-
-                        }
-                    )
-
-            )
-
-        );
-
-
-    values.sort(
-        function (a, b) {
-
-            return String(a)
-                .localeCompare(
-                    String(b)
-                );
-
-        }
+    return [...new Set(
+        allData
+            .map(row => row[key])
+            .filter(Boolean)
+    )].sort((a, b) =>
+        String(a).localeCompare(String(b))
     );
-
-
-    values.forEach(
-
-        function (value) {
-
-            const option =
-                document.createElement(
-                    "option"
-                );
-
-
-            option.value =
-                value;
-
-
-            option.textContent =
-                value;
-
-
-            select.appendChild(
-                option
-            );
-
-        }
-
-    );
-
 }
 
 
-// ============================================================
-// FILTER EVENTS
-// ============================================================
+function populateSelect(id, values, defaultText) {
 
-function setupFilterEvents() {
+    const select = document.getElementById(id);
 
-    const filters = [
+    select.innerHTML = "";
 
-        "monthFilter",
-        "statusFilter",
-        "teamFilter",
-        "auditorFilter",
-        "tlFilter",
-        "counselorFilter",
-        "reasonFilter"
+    const defaultOption = document.createElement("option");
 
-    ];
+    defaultOption.value = "All";
+    defaultOption.textContent = defaultText;
 
+    select.appendChild(defaultOption);
 
-    filters.forEach(
+    values.forEach(value => {
 
-        function (id) {
+        const option = document.createElement("option");
 
-            const element =
-                document.getElementById(
-                    id
-                );
+        option.value = value;
+        option.textContent = formatName(value);
 
-
-            if (element) {
-
-                element.addEventListener(
-                    "change",
-                    applyFilters
-                );
-
-            }
-
-        }
-
-    );
-
-
-    const resetButton =
-        document.getElementById(
-            "resetFilters"
-        );
-
-
-    if (resetButton) {
-
-        resetButton.addEventListener(
-            "click",
-            resetFilters
-        );
-
-    }
-
+        select.appendChild(option);
+    });
 }
 
 
@@ -723,166 +393,61 @@ function setupFilterEvents() {
 function applyFilters() {
 
     const month =
-        getFilterValue(
-            "monthFilter"
-        );
-
+        document.getElementById("monthFilter").value;
 
     const status =
-        getFilterValue(
-            "statusFilter"
-        );
-
+        document.getElementById("statusFilter").value;
 
     const team =
-        getFilterValue(
-            "teamFilter"
-        );
-
+        document.getElementById("teamFilter").value;
 
     const auditor =
-        getFilterValue(
-            "auditorFilter"
-        );
-
+        document.getElementById("auditorFilter").value;
 
     const tl =
-        getFilterValue(
-            "tlFilter"
-        );
-
+        document.getElementById("tlFilter").value;
 
     const counselor =
-        getFilterValue(
-            "counselorFilter"
-        );
-
+        document.getElementById("counselorFilter").value;
 
     const reason =
-        getFilterValue(
-            "reasonFilter"
-        );
+        document.getElementById("reasonFilter").value;
 
 
-    filteredData =
-        rawData.filter(
+    filteredData = allData.filter(row => {
 
-            function (row) {
+        return (
 
-                if (
-                    month !== "ALL" &&
-                    row.month !== month
-                ) {
+            (month === "All" || row.month === month) &&
 
-                    return false;
+            (status === "All" || row.status === status) &&
 
-                }
+            (team === "All" || row.team === team) &&
 
+            (auditor === "All" || row.auditor === auditor) &&
 
-                if (
-                    status !== "ALL" &&
-                    row.status !== status
-                ) {
+            (tl === "All" || row.tl === tl) &&
 
-                    return false;
+            (counselor === "All" || row.counselor === counselor) &&
 
-                }
-
-
-                if (
-                    team !== "ALL" &&
-                    row.team !== team
-                ) {
-
-                    return false;
-
-                }
-
-
-                if (
-                    auditor !== "ALL" &&
-                    row.auditor !== auditor
-                ) {
-
-                    return false;
-
-                }
-
-
-                if (
-                    tl !== "ALL" &&
-                    row.tl !== tl
-                ) {
-
-                    return false;
-
-                }
-
-
-                if (
-                    counselor !== "ALL" &&
-                    row.counselor !== counselor
-                ) {
-
-                    return false;
-
-                }
-
-
-                if (
-                    reason !== "ALL" &&
-                    row.reason !== reason
-                ) {
-
-                    return false;
-
-                }
-
-
-                return true;
-
-            }
+            (reason === "All" || row.reason === reason)
 
         );
+    });
 
+    currentPage = 1;
 
     updateDashboard();
-
 }
 
 
 // ============================================================
-// GET FILTER VALUE
-// ============================================================
-
-function getFilterValue(id) {
-
-    const element =
-        document.getElementById(
-            id
-        );
-
-
-    if (!element) {
-
-        return "ALL";
-
-    }
-
-
-    return element.value;
-
-}
-
-
-// ============================================================
-// RESET FILTERS
+// RESET
 // ============================================================
 
 function resetFilters() {
 
-    const filters = [
-
+    [
         "monthFilter",
         "statusFilter",
         "teamFilter",
@@ -890,38 +455,17 @@ function resetFilters() {
         "tlFilter",
         "counselorFilter",
         "reasonFilter"
+    ].forEach(id => {
 
-    ];
+        document.getElementById(id).value = "All";
 
+    });
 
-    filters.forEach(
+    filteredData = [...allData];
 
-        function (id) {
-
-            const element =
-                document.getElementById(
-                    id
-                );
-
-
-            if (element) {
-
-                element.value =
-                    "ALL";
-
-            }
-
-        }
-
-    );
-
-
-    filteredData =
-        [...rawData];
-
+    currentPage = 1;
 
     updateDashboard();
-
 }
 
 
@@ -933,222 +477,80 @@ function updateDashboard() {
 
     updateKPIs();
 
-    updateCharts();
+    renderTable();
 
-    updateTable();
+    // Let KPI/table paint first.
+    requestAnimationFrame(() => {
 
+        renderCharts();
+
+    });
 }
 
 
 // ============================================================
-// UPDATE KPIs
+// KPI
 // ============================================================
 
 function updateKPIs() {
 
-    const total =
-        filteredData.length;
+    const total = filteredData.length;
 
+    const fatal = filteredData.filter(
+        row => row.status === "Fatal"
+    ).length;
 
-    const fatal =
-        filteredData.filter(
-
-            function (row) {
-
-                return row.status === "Fatal";
-
-            }
-
-        ).length;
-
-
-    const warning =
-        filteredData.filter(
-
-            function (row) {
-
-                return row.status === "Warning";
-
-            }
-
-        ).length;
-
+    const warning = filteredData.filter(
+        row => row.status === "Warning"
+    ).length;
 
     const fatalRate =
         total > 0
-            ? ((fatal / total) * 100)
-                .toFixed(1)
+            ? ((fatal / total) * 100).toFixed(1)
             : "0.0";
 
 
-    setText(
-        "totalAudits",
-        total
-    );
+    document.getElementById("totalAudits").textContent =
+        total.toLocaleString();
+
+    document.getElementById("totalFatal").textContent =
+        fatal.toLocaleString();
+
+    document.getElementById("totalWarning").textContent =
+        warning.toLocaleString();
+
+    document.getElementById("fatalRate").textContent =
+        `${fatalRate}%`;
 
 
-    setText(
-        "totalFatal",
-        fatal
-    );
+    document.getElementById("uniqueAuditors").textContent =
+        new Set(filteredData.map(r => r.auditor)).size;
 
+    document.getElementById("uniqueCounselors").textContent =
+        new Set(filteredData.map(r => r.counselor)).size;
 
-    setText(
-        "totalWarning",
-        warning
-    );
-
-
-    setText(
-        "fatalRate",
-        fatalRate + "%"
-    );
-
-
-    setText(
-        "uniqueAuditors",
-        getUniqueCount(
-            "auditor"
-        )
-    );
-
-
-    setText(
-        "uniqueCounselors",
-        getUniqueCount(
-            "counselor"
-        )
-    );
-
-
-    setText(
-        "uniqueTLs",
-        getUniqueCount(
-            "tl"
-        )
-    );
-
+    document.getElementById("uniqueTLs").textContent =
+        new Set(filteredData.map(r => r.tl)).size;
 }
 
 
 // ============================================================
-// SET TEXT
+// GROUPING
 // ============================================================
 
-function setText(
-    id,
-    value
-) {
-
-    const element =
-        document.getElementById(
-            id
-        );
-
-
-    if (element) {
-
-        element.textContent =
-            value;
-
-    }
-
-}
-
-
-// ============================================================
-// UNIQUE COUNT
-// ============================================================
-
-function getUniqueCount(
-    property
-) {
-
-    return new Set(
-
-        filteredData
-            .map(
-                function (row) {
-
-                    return row[property];
-
-                }
-            )
-            .filter(
-
-                function (value) {
-
-                    return (
-                        value &&
-                        value !== "Unknown"
-                    );
-
-                }
-
-            )
-
-    ).size;
-
-}
-
-
-// ============================================================
-// UPDATE ALL CHARTS
-// ============================================================
-
-function updateCharts() {
-
-    createMonthlyChart();
-
-    createStatusChart();
-
-    createReasonChart();
-
-    createTeamChart();
-
-    createAuditorChart();
-
-    createTLChart();
-
-    createCounselorChart();
-
-}
-
-
-// ============================================================
-// GROUP DATA
-// ============================================================
-
-function groupBy(
-    data,
-    property
-) {
+function groupBy(data, key) {
 
     const result = {};
 
+    data.forEach(row => {
 
-    data.forEach(
+        const value = row[key] || "Unknown";
 
-        function (row) {
+        result[value] = (result[value] || 0) + 1;
 
-            const key =
-                row[property] ||
-                "Unknown";
-
-
-            result[key] =
-                (
-                    result[key] ||
-                    0
-                ) + 1;
-
-        }
-
-    );
-
+    });
 
     return result;
-
 }
 
 
@@ -1156,1002 +558,689 @@ function groupBy(
 // MONTH ORDER
 // ============================================================
 
-const MONTH_ORDER = [
+function sortMonths(data) {
 
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-    "Unknown"
+    const monthOrder = [
+        "Jan",
+        "February",
+        "Feb",
+        "March",
+        "Mar",
+        "April",
+        "Apr",
+        "May",
+        "June",
+        "Jun",
+        "July",
+        "Jul",
+        "August",
+        "Aug",
+        "September",
+        "Sep",
+        "October",
+        "Oct",
+        "November",
+        "Nov",
+        "December",
+        "Dec"
+    ];
 
-];
+    return Object.keys(data).sort((a, b) => {
+
+        const ai = monthOrder.indexOf(a);
+        const bi = monthOrder.indexOf(b);
+
+        if (ai === -1 && bi === -1) {
+            return a.localeCompare(b);
+        }
+
+        if (ai === -1) return 1;
+
+        if (bi === -1) return -1;
+
+        return ai - bi;
+    });
+}
+
+
+// ============================================================
+// CHART DEFAULTS
+// ============================================================
+
+function chartOptions(horizontal = false) {
+
+    return {
+
+        responsive: true,
+
+        maintainAspectRatio: false,
+
+        animation: false,
+
+        transitions: {
+            active: {
+                animation: {
+                    duration: 0
+                }
+            }
+        },
+
+        plugins: {
+
+            legend: {
+                position: "bottom"
+            },
+
+            tooltip: {
+                animation: false
+            }
+
+        },
+
+        scales: {
+
+            x: {
+                beginAtZero: true
+            },
+
+            y: {
+                beginAtZero: true
+            }
+
+        },
+
+        indexAxis: horizontal ? "y" : "x"
+    };
+}
+
+
+// ============================================================
+// DESTROY OLD CHART
+// ============================================================
+
+function destroyChart(name) {
+
+    if (charts[name]) {
+
+        charts[name].destroy();
+
+        charts[name] = null;
+    }
+}
+
+
+// ============================================================
+// RENDER ALL CHARTS
+// ============================================================
+
+function renderCharts() {
+
+    renderMonthlyTrend();
+
+    renderStatusChart();
+
+    renderReasonChart();
+
+    renderTeamChart();
+
+    renderAuditorChart();
+
+    renderTLChart();
+
+    renderCounselorChart();
+}
 
 
 // ============================================================
 // MONTHLY TREND
 // ============================================================
 
-function createMonthlyChart() {
+function renderMonthlyTrend() {
 
-    const fatal =
-        {};
+    destroyChart("monthly");
 
-    const warning =
-        {};
+    const grouped = groupBy(filteredData, "month");
 
+    const months = sortMonths(grouped);
 
-    filteredData.forEach(
-
-        function (row) {
-
-            const month =
-                row.month;
-
-
-            if (
-                row.status === "Fatal"
-            ) {
-
-                fatal[month] =
-                    (
-                        fatal[month] ||
-                        0
-                    ) + 1;
-
-            }
-
-
-            if (
-                row.status === "Warning"
-            ) {
-
-                warning[month] =
-                    (
-                        warning[month] ||
-                        0
-                    ) + 1;
-
-            }
-
-        }
-
+    const values = months.map(
+        month => grouped[month]
     );
-
-
-    const labels =
-        MONTH_ORDER.filter(
-
-            function (month) {
-
-                return (
-                    fatal[month] ||
-                    warning[month]
-                );
-
-            }
-
-        );
-
-
-    renderChart(
-
-        "monthlyTrend",
-
-        "line",
-
-        labels,
-
-        [
-
-            {
-
-                label: "Fatal",
-
-                data:
-                    labels.map(
-                        function (month) {
-
-                            return (
-                                fatal[month] ||
-                                0
-                            );
-
-                        }
-                    ),
-
-                tension: 0.3
-
-            },
-
-
-            {
-
-                label: "Warning",
-
-                data:
-                    labels.map(
-                        function (month) {
-
-                            return (
-                                warning[month] ||
-                                0
-                            );
-
-                        }
-                    ),
-
-                tension: 0.3
-
-            }
-
-        ]
-
-    );
-
-}
-
-
-// ============================================================
-// STATUS CHART
-// ============================================================
-
-function createStatusChart() {
-
-    const data =
-        groupBy(
-            filteredData,
-            "status"
-        );
-
-
-    renderChart(
-
-        "statusChart",
-
-        "doughnut",
-
-        Object.keys(data),
-
-        [
-
-            {
-
-                data:
-                    Object.values(data)
-
-            }
-
-        ]
-
-    );
-
-}
-
-
-// ============================================================
-// FATAL REASON CHART
-// ============================================================
-
-function createReasonChart() {
-
-    const fatalData =
-        filteredData.filter(
-
-            function (row) {
-
-                return row.status === "Fatal";
-
-            }
-
-        );
-
-
-    const data =
-        groupBy(
-            fatalData,
-            "reason"
-        );
-
-
-    const sorted =
-        Object.entries(data)
-        .sort(
-
-            function (a, b) {
-
-                return b[1] - a[1];
-
-            }
-
-        )
-        .slice(0, 12);
-
-
-    renderChart(
-
-        "reasonChart",
-
-        "bar",
-
-        sorted.map(
-            function (item) {
-
-                return item[0];
-
-            }
-        ),
-
-        [
-
-            {
-
-                label:
-                    "Fatal Count",
-
-                data:
-                    sorted.map(
-                        function (item) {
-
-                            return item[1];
-
-                        }
-                    )
-
-            }
-
-        ],
-
-        true
-
-    );
-
-}
-
-
-// ============================================================
-// TEAM CHART
-// ============================================================
-
-function createTeamChart() {
-
-    const fatalData =
-        filteredData.filter(
-
-            function (row) {
-
-                return row.status === "Fatal";
-
-            }
-
-        );
-
-
-    const data =
-        groupBy(
-            fatalData,
-            "team"
-        );
-
-
-    const sorted =
-        Object.entries(data)
-        .sort(
-
-            function (a, b) {
-
-                return b[1] - a[1];
-
-            }
-
-        );
-
-
-    renderChart(
-
-        "teamChart",
-
-        "bar",
-
-        sorted.map(
-            function (item) {
-
-                return item[0];
-
-            }
-        ),
-
-        [
-
-            {
-
-                label:
-                    "Fatal Count",
-
-                data:
-                    sorted.map(
-                        function (item) {
-
-                            return item[1];
-
-                        }
-                    )
-
-            }
-
-        ],
-
-        true
-
-    );
-
-}
-
-
-// ============================================================
-// AUDITOR CHART
-// ============================================================
-
-function createAuditorChart() {
-
-    const fatalData =
-        filteredData.filter(
-
-            function (row) {
-
-                return row.status === "Fatal";
-
-            }
-
-        );
-
-
-    const data =
-        groupBy(
-            fatalData,
-            "auditor"
-        );
-
-
-    const sorted =
-        Object.entries(data)
-        .sort(
-
-            function (a, b) {
-
-                return b[1] - a[1];
-
-            }
-
-        )
-        .slice(0, 15);
-
-
-    renderChart(
-
-        "auditorChart",
-
-        "bar",
-
-        sorted.map(
-            function (item) {
-
-                return formatName(
-                    item[0]
-                );
-
-            }
-        ),
-
-        [
-
-            {
-
-                label:
-                    "Fatal Count",
-
-                data:
-                    sorted.map(
-                        function (item) {
-
-                            return item[1];
-
-                        }
-                    )
-
-            }
-
-        ],
-
-        true
-
-    );
-
-}
-
-
-// ============================================================
-// TL CHART
-// ============================================================
-
-function createTLChart() {
-
-    const fatalData =
-        filteredData.filter(
-
-            function (row) {
-
-                return row.status === "Fatal";
-
-            }
-
-        );
-
-
-    const data =
-        groupBy(
-            fatalData,
-            "tl"
-        );
-
-
-    const sorted =
-        Object.entries(data)
-        .sort(
-
-            function (a, b) {
-
-                return b[1] - a[1];
-
-            }
-
-        )
-        .slice(0, 15);
-
-
-    renderChart(
-
-        "tlChart",
-
-        "bar",
-
-        sorted.map(
-            function (item) {
-
-                return formatName(
-                    item[0]
-                );
-
-            }
-        ),
-
-        [
-
-            {
-
-                label:
-                    "Fatal Count",
-
-                data:
-                    sorted.map(
-                        function (item) {
-
-                            return item[1];
-
-                        }
-                    )
-
-            }
-
-        ],
-
-        true
-
-    );
-
-}
-
-
-// ============================================================
-// COUNSELOR CHART
-// ============================================================
-
-function createCounselorChart() {
-
-    const fatalData =
-        filteredData.filter(
-
-            function (row) {
-
-                return row.status === "Fatal";
-
-            }
-
-        );
-
-
-    const data =
-        groupBy(
-            fatalData,
-            "counselor"
-        );
-
-
-    const sorted =
-        Object.entries(data)
-        .sort(
-
-            function (a, b) {
-
-                return b[1] - a[1];
-
-            }
-
-        )
-        .slice(0, 25);
-
-
-    renderChart(
-
-        "counselorChart",
-
-        "bar",
-
-        sorted.map(
-            function (item) {
-
-                return formatName(
-                    item[0]
-                );
-
-            }
-        ),
-
-        [
-
-            {
-
-                label:
-                    "Fatal Count",
-
-                data:
-                    sorted.map(
-                        function (item) {
-
-                            return item[1];
-
-                        }
-                    )
-
-            }
-
-        ],
-
-        true
-
-    );
-
-}
-
-
-// ============================================================
-// GENERIC CHART RENDERER
-// ============================================================
-
-function renderChart(
-
-    id,
-
-    type,
-
-    labels,
-
-    datasets,
-
-    horizontal = false
-
-) {
-
-    const canvas =
-        document.getElementById(
-            id
-        );
-
-
-    if (!canvas) {
-
-        return;
-
-    }
-
-
-    if (charts[id]) {
-
-        charts[id].destroy();
-
-    }
-
 
     const ctx =
-        canvas.getContext(
-            "2d"
-        );
+        document.getElementById("monthlyTrendChart");
 
+    charts.monthly = new Chart(ctx, {
 
-    charts[id] =
-        new Chart(
+        type: "line",
 
-            ctx,
+        data: {
 
-            {
+            labels: months,
 
-                type:
-                    type,
+            datasets: [{
+                label: "Fatal Audits",
 
+                data: values,
 
-                data:
-                    {
+                tension: 0.2,
 
-                        labels:
-                            labels,
+                fill: false
+            }]
+        },
 
-                        datasets:
-                            datasets
+        options: chartOptions()
 
-                    },
-
-
-                options:
-                    {
-
-                        responsive:
-                            true,
-
-                        maintainAspectRatio:
-                            false,
-
-
-                        indexAxis:
-                            horizontal
-                                ? "y"
-                                : "x",
-
-
-                        plugins:
-                            {
-
-                                legend:
-                                    {
-
-                                        labels:
-                                            {
-
-                                                color:
-                                                    "#e5e7eb"
-
-                                            }
-
-                                    }
-
-                            },
-
-
-                        scales:
-                            type === "doughnut"
-                                ? {}
-
-                                :
-
-                                {
-
-                                    x:
-                                        {
-
-                                            ticks:
-                                                {
-
-                                                    color:
-                                                        "#94a3b8"
-
-                                                },
-
-                                            grid:
-                                                {
-
-                                                    color:
-                                                        "#1e293b"
-
-                                                }
-
-                                        },
-
-
-                                    y:
-                                        {
-
-                                            ticks:
-                                                {
-
-                                                    color:
-                                                        "#94a3b8"
-
-                                                },
-
-                                            grid:
-                                                {
-
-                                                    color:
-                                                        "#1e293b"
-
-                                                }
-
-                                        }
-
-                                }
-
-                    }
-
-            }
-
-        );
-
+    });
 }
 
 
 // ============================================================
-// FORMAT EMAIL AS NAME
+// STATUS
 // ============================================================
 
-function formatName(
-    value
-) {
+function renderStatusChart() {
 
-    if (
-        !value ||
-        value === "Unknown"
-    ) {
+    destroyChart("status");
 
-        return "Unknown";
+    const fatal =
+        filteredData.filter(r => r.status === "Fatal").length;
 
-    }
+    const warning =
+        filteredData.filter(r => r.status === "Warning").length;
 
+    const ctx =
+        document.getElementById("statusChart");
 
-    if (
-        !String(value)
-        .includes("@")
-    ) {
+    charts.status = new Chart(ctx, {
 
-        return value;
+        type: "doughnut",
 
-    }
+        data: {
 
+            labels: [
+                "Fatal",
+                "Warning"
+            ],
 
-    let name =
-        String(value)
-        .split("@")[0];
+            datasets: [{
+                data: [
+                    fatal,
+                    warning
+                ]
+            }]
+        },
 
+        options: chartOptions()
 
-    name =
-        name.replace(
-            /[0-9]+$/g,
-            ""
-        );
-
-
-    name =
-        name.replace(
-            /[._-]+/g,
-            " "
-        );
-
-
-    name =
-        name
-            .split(" ")
-            .filter(
-                function (word) {
-
-                    return word.length > 0;
-
-                }
-            )
-            .map(
-                function (word) {
-
-                    return (
-                        word.charAt(0)
-                        .toUpperCase() +
-                        word
-                            .slice(1)
-                            .toLowerCase()
-                    );
-
-                }
-            )
-            .join(" ");
-
-
-    return name;
-
+    });
 }
 
 
 // ============================================================
-// UPDATE DATA TABLE
+// REASON
 // ============================================================
 
-function updateTable() {
+function renderReasonChart() {
+
+    destroyChart("reason");
+
+    const grouped = groupBy(filteredData, "reason");
+
+    const sorted = Object.entries(grouped)
+        .sort((a, b) => b[1] - a[1]);
+
+    const labels = sorted.map(x => x[0]);
+
+    const values = sorted.map(x => x[1]);
+
+    const ctx =
+        document.getElementById("reasonChart");
+
+    charts.reason = new Chart(ctx, {
+
+        type: "bar",
+
+        data: {
+
+            labels: labels,
+
+            datasets: [{
+                label: "Fatal Count",
+
+                data: values
+            }]
+        },
+
+        options: chartOptions(true)
+
+    });
+}
+
+
+// ============================================================
+// TEAM
+// ============================================================
+
+function renderTeamChart() {
+
+    destroyChart("team");
+
+    const fatalData =
+        filteredData.filter(r => r.status === "Fatal");
+
+    const grouped = groupBy(fatalData, "team");
+
+    const sorted = Object.entries(grouped)
+        .sort((a, b) => b[1] - a[1]);
+
+    const ctx =
+        document.getElementById("teamChart");
+
+    charts.team = new Chart(ctx, {
+
+        type: "bar",
+
+        data: {
+
+            labels: sorted.map(x => x[0]),
+
+            datasets: [{
+                label: "Fatal Count",
+
+                data: sorted.map(x => x[1])
+            }]
+        },
+
+        options: chartOptions()
+    });
+}
+
+
+// ============================================================
+// AUDITOR
+// ============================================================
+
+function renderAuditorChart() {
+
+    destroyChart("auditor");
+
+    const fatalData =
+        filteredData.filter(r => r.status === "Fatal");
+
+    const grouped = groupBy(fatalData, "auditor");
+
+    const sorted = Object.entries(grouped)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20);
+
+    const ctx =
+        document.getElementById("auditorChart");
+
+    charts.auditor = new Chart(ctx, {
+
+        type: "bar",
+
+        data: {
+
+            labels: sorted.map(
+                x => formatName(x[0])
+            ),
+
+            datasets: [{
+                label: "Fatal Count",
+
+                data: sorted.map(x => x[1])
+            }]
+        },
+
+        options: chartOptions(true)
+    });
+}
+
+
+// ============================================================
+// TL
+// ============================================================
+
+function renderTLChart() {
+
+    destroyChart("tl");
+
+    const fatalData =
+        filteredData.filter(r => r.status === "Fatal");
+
+    const grouped = groupBy(fatalData, "tl");
+
+    const sorted = Object.entries(grouped)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20);
+
+    const ctx =
+        document.getElementById("tlChart");
+
+    charts.tl = new Chart(ctx, {
+
+        type: "bar",
+
+        data: {
+
+            labels: sorted.map(
+                x => formatName(x[0])
+            ),
+
+            datasets: [{
+                label: "Fatal Count",
+
+                data: sorted.map(x => x[1])
+            }]
+        },
+
+        options: chartOptions(true)
+    });
+}
+
+
+// ============================================================
+// COUNSELOR
+// ============================================================
+
+function renderCounselorChart() {
+
+    destroyChart("counselor");
+
+    const fatalData =
+        filteredData.filter(r => r.status === "Fatal");
+
+    const grouped = groupBy(
+        fatalData,
+        "counselor"
+    );
+
+    const sorted = Object.entries(grouped)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20);
+
+    const ctx =
+        document.getElementById("counselorChart");
+
+    charts.counselor = new Chart(ctx, {
+
+        type: "bar",
+
+        data: {
+
+            labels: sorted.map(
+                x => formatName(x[0])
+            ),
+
+            datasets: [{
+                label: "Fatal Count",
+
+                data: sorted.map(x => x[1])
+            }]
+        },
+
+        options: chartOptions(true)
+    });
+}
+
+
+// ============================================================
+// TABLE
+// ============================================================
+
+function renderTable() {
 
     const tbody =
-        document.getElementById(
-            "dataTable"
+        document.getElementById("dataTableBody");
+
+    const totalPages =
+        Math.max(
+            1,
+            Math.ceil(
+                filteredData.length / ROWS_PER_PAGE
+            )
         );
 
-
-    if (!tbody) {
-
-        return;
-
+    if (currentPage > totalPages) {
+        currentPage = totalPages;
     }
+
+    const start =
+        (currentPage - 1) * ROWS_PER_PAGE;
+
+    const end =
+        start + ROWS_PER_PAGE;
+
+    const pageData =
+        filteredData.slice(start, end);
 
 
     tbody.innerHTML = "";
 
 
-    const rowsToShow =
-        filteredData.slice(
-            0,
-            100
-        );
+    if (!pageData.length) {
 
-
-    rowsToShow.forEach(
-
-        function (row) {
-
-            const tr =
-                document.createElement(
-                    "tr"
-                );
-
-
-            const statusClass =
-                row.status === "Fatal"
-                    ? "badge-fatal"
-                    : "badge-warning";
-
-
-            const recording =
-                row[
-                    "Call recording link"
-                ];
-
-
-            const recordingHTML =
-                recording
-                    ?
-
-                    `<a
-                        class="record-link"
-                        href="${escapeHTML(recording)}"
-                        target="_blank"
-                        rel="noopener noreferrer">
-                        Open
-                     </a>`
-
-                    :
-
-                    "-";
-
-
-            tr.innerHTML = `
-
-                <td>
-                    ${escapeHTML(
-                        row["Audit Date"] || "-"
-                    )}
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9"
+                    class="text-center py-4">
+                    No records found
                 </td>
+            </tr>
+        `;
 
+        updatePagination(0, 0);
 
-                <td>
-
-                    <span
-                        class="badge ${statusClass}">
-
-                        ${escapeHTML(
-                            row.status
-                        )}
-
-                    </span>
-
-                </td>
-
-
-                <td>
-                    ${escapeHTML(
-                        formatName(
-                            row.auditor
-                        )
-                    )}
-                </td>
-
-
-                <td>
-                    ${escapeHTML(
-                        formatName(
-                            row.counselor
-                        )
-                    )}
-                </td>
-
-
-                <td>
-                    ${escapeHTML(
-                        formatName(
-                            row.tl
-                        )
-                    )}
-                </td>
-
-
-                <td>
-                    ${escapeHTML(
-                        row.team
-                    )}
-                </td>
-
-
-                <td>
-                    ${escapeHTML(
-                        row.reason
-                    )}
-                </td>
-
-
-                <td>
-                    ${escapeHTML(
-                        row["Lead Id"] || "-"
-                    )}
-                </td>
-
-
-                <td>
-                    ${recordingHTML}
-                </td>
-
-            `;
-
-
-            tbody.appendChild(
-                tr
-            );
-
-        }
-
-    );
-
-
-    const recordCount =
-        document.getElementById(
-            "recordCount"
-        );
-
-
-    if (recordCount) {
-
-        recordCount.textContent =
-            filteredData.length +
-            " records";
-
+        return;
     }
 
+
+    const fragment =
+        document.createDocumentFragment();
+
+
+    pageData.forEach(row => {
+
+        const tr = document.createElement("tr");
+
+        const statusClass =
+            row.status === "Fatal"
+                ? "text-danger fw-bold"
+                : "text-warning fw-bold";
+
+
+        tr.innerHTML = `
+
+            <td>${escapeHTML(row.auditDate)}</td>
+
+            <td class="${statusClass}">
+                ${escapeHTML(row.status)}
+            </td>
+
+            <td>
+                ${escapeHTML(formatName(row.auditor))}
+            </td>
+
+            <td>
+                ${escapeHTML(formatName(row.counselor))}
+            </td>
+
+            <td>
+                ${escapeHTML(formatName(row.tl))}
+            </td>
+
+            <td>
+                ${escapeHTML(row.team)}
+            </td>
+
+            <td>
+                ${escapeHTML(row.reason)}
+            </td>
+
+            <td>
+                ${escapeHTML(row.leadId)}
+            </td>
+
+            <td>
+                ${
+                    row.recording !== "Unknown"
+                        ? `
+                        <a
+                            href="${safeURL(row.recording)}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="btn btn-sm btn-outline-primary"
+                        >
+                            <i class="bi bi-play-circle"></i>
+                            View
+                        </a>
+                        `
+                        : "-"
+                }
+            </td>
+
+        `;
+
+        fragment.appendChild(tr);
+
+    });
+
+
+    tbody.appendChild(fragment);
+
+
+    document.getElementById("tableCount").textContent =
+        `${filteredData.length.toLocaleString()} Records`;
+
+
+    updatePagination(
+        currentPage,
+        totalPages
+    );
+}
+
+
+// ============================================================
+// PAGINATION
+// ============================================================
+
+function updatePagination(page, totalPages) {
+
+    let pagination =
+        document.getElementById("paginationControls");
+
+
+    if (!pagination) {
+
+        pagination =
+            document.createElement("div");
+
+        pagination.id =
+            "paginationControls";
+
+        pagination.className =
+            "d-flex justify-content-center align-items-center gap-2 p-3";
+
+
+        const tableCard =
+            document
+                .getElementById("dataTableBody")
+                .closest(".card");
+
+        tableCard.appendChild(pagination);
+    }
+
+
+    if (!totalPages || totalPages <= 1) {
+
+        pagination.innerHTML = "";
+
+        return;
+    }
+
+
+    pagination.innerHTML = `
+
+        <button
+            class="btn btn-sm btn-outline-secondary"
+            id="previousPage"
+            ${page <= 1 ? "disabled" : ""}
+        >
+            <i class="bi bi-chevron-left"></i>
+            Previous
+        </button>
+
+        <span class="small fw-semibold">
+            Page ${page} of ${totalPages}
+        </span>
+
+        <button
+            class="btn btn-sm btn-outline-secondary"
+            id="nextPage"
+            ${page >= totalPages ? "disabled" : ""}
+        >
+            Next
+            <i class="bi bi-chevron-right"></i>
+        </button>
+
+    `;
+
+
+    document
+        .getElementById("previousPage")
+        .addEventListener("click", () => {
+
+            if (currentPage > 1) {
+
+                currentPage--;
+
+                renderTable();
+            }
+
+        });
+
+
+    document
+        .getElementById("nextPage")
+        .addEventListener("click", () => {
+
+            if (currentPage < totalPages) {
+
+                currentPage++;
+
+                renderTable();
+            }
+
+        });
+}
+
+
+// ============================================================
+// FORMAT EMAIL / NAME
+// ============================================================
+
+function formatName(value) {
+
+    if (!value || value === "Unknown") {
+        return "Unknown";
+    }
+
+    const text = String(value).trim();
+
+    if (!text.includes("@")) {
+        return text;
+    }
+
+    const username =
+        text.split("@")[0];
+
+    return username
+        .replace(/[._-]+/g, " ")
+        .replace(/\b\w/g, char =>
+            char.toUpperCase()
+        );
 }
 
 
@@ -2159,54 +1248,55 @@ function updateTable() {
 // ESCAPE HTML
 // ============================================================
 
-function escapeHTML(
-    value
-) {
+function escapeHTML(value) {
 
-    if (
-        value === undefined ||
-        value === null
-    ) {
-
-        return "";
-
-    }
-
-
-    return String(value)
-
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-
-        .replace(
-            /</g,
-            "&lt;"
-        )
-
-        .replace(
-            />/g,
-            "&gt;"
-        )
-
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-
-        .replace(
-            /'/g,
-            "&#039;"
-        );
-
+    return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 
 // ============================================================
-// END
+// SAFE URL
 // ============================================================
 
-console.log(
-    "Fatal QA Dashboard JavaScript loaded."
-);
+function safeURL(url) {
+
+    try {
+
+        const parsed =
+            new URL(url);
+
+        if (
+            parsed.protocol === "http:" ||
+            parsed.protocol === "https:"
+        ) {
+            return parsed.href;
+        }
+
+    } catch (e) {}
+
+    return "#";
+}
+
+
+// ============================================================
+// ERROR
+// ============================================================
+
+function showError(message) {
+
+    const errorBox =
+        document.getElementById("dataError");
+
+    const errorMessage =
+        document.getElementById("dataErrorMessage");
+
+    errorBox.classList.remove("d-none");
+
+    errorMessage.textContent =
+        `Error: ${message}`;
+}
